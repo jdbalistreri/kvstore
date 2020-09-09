@@ -1,1 +1,3 @@
-# kvstore
+# Distributed Key Value Store
+
+implemented as part of the Bradfield School of Computer Science (Distributed Systems Course)[https://bradfieldcs.com/courses/distributed-systems/]
