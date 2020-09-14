@@ -66,12 +66,13 @@ class BinaryEncoderDecoder:
         return buf.read(size).decode(self.string_encoding)
 
     def encode_string(self, str, size_bytes):
-        size = len(str).to_bytes(
+        encoded = str.encode(self.string_encoding)
+        size = len(encoded).to_bytes(
             size_bytes,
             byteorder=self.byte_order,
             signed=self.string_size_signed
         )
-        return size + str.encode(self.string_encoding)
+        return size + encoded
 
     def encode_command(self, i):
         return i.to_bytes(

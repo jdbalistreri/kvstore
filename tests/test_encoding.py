@@ -8,6 +8,7 @@ def test_bijection():
     test_cases = [
         Get("asdkfasdfa"),
         Set("asdkfasdfa", "1234"),
+        Set("asdkfasdfa😋😋😋", "1234"),
     ]
     for command in test_cases:
         assert command == en.decode(en.encode(command))
