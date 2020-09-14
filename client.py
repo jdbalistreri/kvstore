@@ -1,11 +1,26 @@
+import atexit
+import os
 import socket
 import sys
+import readline
 
 from kvstore.constants import INPUT_PROMPT
 from kvstore.encoding import BinaryEncoderDecoder
 from kvstore.input import input_to_command, InputValidationError
 
+def configure_readline():
+    histfile = ".python_history"
+    try:
+        readline.read_history_file(histfile)
+        readline.set_history_length(1000)
+    except FileNotFoundError:
+        pass
+
+    atexit.register(readline.write_history_file, histfile)
+
+
 def main():
+    configure_readline()
     en = BinaryEncoderDecoder()
 
     while True:
