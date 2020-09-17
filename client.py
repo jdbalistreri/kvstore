@@ -4,7 +4,7 @@ import socket
 import sys
 import readline
 
-from kvstore.constants import INPUT_PROMPT
+from kvstore.constants import INPUT_PROMPT, ENTRYPOINT_SOCKET
 from kvstore.encoding import BinaryEncoderDecoder
 from kvstore.input import input_to_command, InputValidationError
 
@@ -26,7 +26,7 @@ def main():
     try:
         while True:
             s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            s.connect('test_file.sock')
+            s.connect(ENTRYPOINT_SOCKET)
 
             i = input(INPUT_PROMPT)
 
@@ -49,7 +49,7 @@ def main():
 
             print(total.decode(encoding='UTF-8') + "\n")
             s.close()
-            
+
     except KeyboardInterrupt:
         pass
     finally:
