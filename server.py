@@ -1,4 +1,5 @@
 import socketserver
+import os
 
 from kvstore.constants import GET_OP, SET_OP
 from kvstore.input import input_to_command, InputValidationError
@@ -31,10 +32,12 @@ class EchoRequestHandler(socketserver.BaseRequestHandler):
         return
 
 if __name__ == '__main__':
+    os.unlink('test_file.sock')
     address = ('localhost', 65432)
-    server = socketserver.TCPServer(address, EchoRequestHandler)
+    server = socketserver.UnixStreamServer('test_file.sock', EchoRequestHandler)
 
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         server.socket.close()
+        os.unlink('test_file.sock')

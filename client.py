@@ -23,23 +23,36 @@ def main():
     configure_readline()
     en = BinaryEncoderDecoder()
 
-    while True:
-        i = input(INPUT_PROMPT)
-        try:
-            command = input_to_command(i)
-        except InputValidationError as e:
-            print(str(e))
-            continue
+    try:
+        while True:
+            s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            s.connect('test_file.sock')
 
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect(('localhost', 65432))
-        encoded = en.encode(command)
-        print("sending %s" % encoded)
-        s.send(encoded)
+            i = input(INPUT_PROMPT)
 
-        response = s.recv(1024)
-        print(response.decode(encoding='UTF-8') + "\n")
+            try:
+                command = input_to_command(i)
+            except InputValidationError as e:
+                print(str(e))
+                continue
 
+            encoded = en.encode(command)
+            print("sending %s" % encoded)
+            s.send(encoded)
+
+            total = b''
+            while True:
+                response = s.recv(1024)
+                if len(response) == 0:
+                    break
+                total += response
+
+            print(total.decode(encoding='UTF-8') + "\n")
+            s.close()
+            
+    except KeyboardInterrupt:
+        pass
+    finally:
         s.close()
 
 if __name__ == "__main__":
