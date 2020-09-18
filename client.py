@@ -24,6 +24,8 @@ def main():
     configure_readline()
     en = BinaryEncoderDecoder()
 
+    CONNECT_TO_NODE = 1
+
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
         while True:
@@ -35,7 +37,7 @@ def main():
                 print(str(e))
                 continue
 
-            response, s = get_command_from_command(command, 1)
+            response, s = get_command_from_command(command, CONNECT_TO_NODE)
 
             print(response.value + "\n")
             s.close()

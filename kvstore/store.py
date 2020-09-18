@@ -22,16 +22,18 @@ class KVStore:
         self.logSequenceNumber += 1
         print(f"logSequenceNumber: {self.logSequenceNumber}")
 
-        # dump entire db
-        pickle.dump(
-            {"store": self.store, "logSequenceNumber": self.logSequenceNumber},
-            open( self.filename, "wb+")
-        )
+        self.dump_db()
 
         # write to write log
         encoded_wl = self.en.encode(WriteLog(command.key, command.value, self.logSequenceNumber))
         with open(self.writelog, 'ab') as f:
             f.write(encoded_wl)
+
+    def dump_db(self):
+        pickle.dump(
+            {"store": self.store, "logSequenceNumber": self.logSequenceNumber},
+            open( self.filename, "wb+")
+        )
 
     def read_from_disk(self):
         if os.path.exists(self.filename):
@@ -52,6 +54,7 @@ class KVStore:
         print("loading from snapshot: ", snapshot)
         self.logSequenceNumber = snapshot.logSequenceNumber
         self.store = snapshot.store
+        self.dump_db()
 
     def get_snapshot(self):
         return self.store, self.logSequenceNumber
