@@ -9,7 +9,8 @@ import socket
 
 leader_node_num = 1
 
-def make_server(node_number, leader):
+def make_server(node_number):
+    leader = node_number == leader_node_num
     sockFd = get_socket_fd(node_number)
 
     server = socketserver.UnixStreamServer(sockFd, EntryPointHandler)

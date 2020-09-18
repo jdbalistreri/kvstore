@@ -1,30 +1,19 @@
-import atexit
 import os
 import socket
 import sys
-import readline
 
-from kvstore.constants import INPUT_PROMPT, ENTRYPOINT_SOCKET
-from kvstore.encoding import BinaryEncoderDecoder
-from kvstore.input import input_to_command, InputValidationError
+from kvstore.constants import INPUT_PROMPT
+from kvstore.input import configure_readline, input_to_command, InputValidationError
 from kvstore.handlers import get_command_from_command
-
-def configure_readline():
-    histfile = ".python_history"
-    try:
-        readline.read_history_file(histfile)
-        readline.set_history_length(1000)
-    except FileNotFoundError:
-        pass
-
-    atexit.register(readline.write_history_file, histfile)
 
 
 def main():
     configure_readline()
-    en = BinaryEncoderDecoder()
 
-    CONNECT_TO_NODE = 1
+    try:
+        connect_to_node = sys.argv[1]
+    except IndexError:
+        connect_to_node = 1
 
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
@@ -37,7 +26,7 @@ def main():
                 print(str(e))
                 continue
 
-            response, s = get_command_from_command(command, CONNECT_TO_NODE)
+            response, s = get_command_from_command(command, connect_to_node)
 
             print(response.value + "\n")
             s.close()

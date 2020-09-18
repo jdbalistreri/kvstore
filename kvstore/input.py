@@ -1,4 +1,6 @@
+import atexit
 import re
+import readline
 from kvstore.constants import GET_OP, SET_OP
 from kvstore.encoding import *
 
@@ -27,3 +29,13 @@ def parse_input(command):
         return SET_OP, setkey, setvalue
     else:
         return GET_OP, getkey, ""
+
+def configure_readline():
+    histfile = ".python_history"
+    try:
+        readline.read_history_file(histfile)
+        readline.set_history_length(1000)
+    except FileNotFoundError:
+        pass
+
+    atexit.register(readline.write_history_file, histfile)

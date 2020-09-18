@@ -4,3 +4,5 @@ env/
 data/
 .python_history
 *.sock*
+__pycache__
+.pytest_cache
