@@ -1,7 +1,12 @@
+import atexit
 import os
 import sys
 
-from kvstore.handlers import make_server
+from kvstore.server import make_server, get_socket_fd
+
+def unlink(sockfd):
+    if os.path.exists(sockfd):
+        os.unlink(sockfd)
 
 if __name__ == '__main__':
     try:
@@ -9,7 +14,9 @@ if __name__ == '__main__':
     except IndexError:
         node_number = 1
 
-    server, sockfd = make_server(node_number)
+    sockfd = get_socket_fd(node_number)
+    atexit.register(unlink, sockfd)
+    server = make_server(node_number)
 
     try:
         server.serve_forever()

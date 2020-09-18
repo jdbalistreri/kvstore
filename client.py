@@ -4,7 +4,7 @@ import sys
 
 from kvstore.constants import INPUT_PROMPT
 from kvstore.input import configure_readline, input_to_command, InputValidationError
-from kvstore.handlers import get_command_from_command
+from kvstore.handlers import call_node_with_command
 
 
 def main():
@@ -26,7 +26,7 @@ def main():
                 print(str(e))
                 continue
 
-            response, s = get_command_from_command(command, connect_to_node)
+            response, s = call_node_with_command(command, connect_to_node)
 
             print(response.value + "\n")
             s.close()
