@@ -10,6 +10,9 @@ class KVStore:
     def __init__(self, node_number, filename=STORE_FILE_TMPL):
         self.en = BinaryEncoderDecoder()
 
+        self.node_number = node_number
+        self.is_leader = node_number == 1
+        self.followers = set()
         self.filename = filename % node_number
         self.writelog = WRITE_LOG_TMPL % node_number
 
@@ -56,7 +59,12 @@ class KVStore:
         self.store = snapshot.store
         self.dump_db()
 
-    def get_snapshot(self):
+    def get_snapshot_and_register_follower(self, follower_num):
+        if not self.is_leader:
+            raise Exception("Only the leader can return snapshots")
+
+        self.followers.add(follower_num)
+
         return self.store, self.logSequenceNumber
 
     def set(self, key, value):

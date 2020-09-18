@@ -2,7 +2,7 @@ import atexit
 import os
 import sys
 
-from kvstore.server import make_server, get_socket_fd
+from kvstore.server import Server, get_socket_fd
 
 def unlink(sockfd):
     if os.path.exists(sockfd):
@@ -16,10 +16,10 @@ if __name__ == '__main__':
 
     sockfd = get_socket_fd(node_number)
     atexit.register(unlink, sockfd)
-    server = make_server(node_number)
+    server = Server(node_number)
 
     try:
-        server.serve_forever()
+        server.serve()
     except KeyboardInterrupt:
-        server.socket.close()
+        server.shutdown()
         os.unlink(sockfd)

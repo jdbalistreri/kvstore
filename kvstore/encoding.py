@@ -5,7 +5,7 @@ class CommandEnum(Enum):
     GET = 1
     SET = 2
     WRITE_LOG = 3
-    GET_SNAPSHOT = 4
+    REGISTER_FOLLOWER = 4
     SNAPSHOT = 5
     STRING_RESPONSE = 6
 
@@ -42,8 +42,8 @@ class BinaryEncoderDecoder:
             value = self.decode_string(buf)
             return WriteLog(key, value, logSequenceNumber)
 
-        elif command_no == CommandEnum.GET_SNAPSHOT.value:
-            return GetSnapshot()
+        elif command_no == CommandEnum.REGISTER_FOLLOWER.value:
+            return RegisterFollower(self.decode_num(buf))
 
         elif command_no == CommandEnum.SNAPSHOT.value:
             logSequenceNumber = self.decode_num(buf)
@@ -81,8 +81,8 @@ class BinaryEncoderDecoder:
             total_len = self.size_bytes + len(partial_total)
 
             buf.write(self.encode_num(total_len) + partial_total)
-        elif command.enum == CommandEnum.GET_SNAPSHOT:
-            pass
+        elif command.enum == CommandEnum.REGISTER_FOLLOWER:
+            buf.write(self.encode_num(command.node_number))
         elif command.enum == CommandEnum.SNAPSHOT:
             buf.write(self.encode_num(command.logSequenceNumber))
 
@@ -170,15 +170,16 @@ class WriteLog(Command):
             raise NotImplemented
         return self.key == other.key and self.value == other.value and self.logSequenceNumber == other.logSequenceNumber
 
-class GetSnapshot(Command):
-    def __init__(self):
-        self.enum = CommandEnum.GET_SNAPSHOT
+class RegisterFollower(Command):
+    def __init__(self, node_number):
+        self.enum = CommandEnum.REGISTER_FOLLOWER
+        self.node_number = node_number
 
     def __repr__(self):
-        return f'GET_SNAPSHOT()'
+        return f'REGISTER_FOLLOWER({self.node_number})'
 
     def __eq__(self, other):
-        return True
+        return self.node_number == other.node_number
 
 class Snapshot(Command):
     def __init__(self, store, logSequenceNumber):

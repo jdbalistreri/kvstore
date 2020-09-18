@@ -3,30 +3,57 @@ import socketserver
 from kvstore.constants import ENTRYPOINT_SOCKET
 from kvstore.store import KVStore
 from kvstore.handlers import EntryPointHandler
-from kvstore.encoding import BinaryEncoderDecoder
+from kvstore.encoding import *
 import socket
 
 
-leader_node_num = 1
+LEADER = 1
 
-def make_server(node_number):
-    leader = node_number == leader_node_num
-    sockFd = get_socket_fd(node_number)
+class Server:
+    def __init__(self, node_number):
+        self.node_number = node_number
+        self.kvstore = KVStore(node_number)
+        self.en = BinaryEncoderDecoder()
+        self.is_leader = node_number == LEADER
+        sockFd = get_socket_fd(node_number)
+        self.server = socketserver.UnixStreamServer(sockFd, EntryPointHandler)
+        self.server.server = self
 
-    server = socketserver.UnixStreamServer(sockFd, EntryPointHandler)
-    server.kvstore = KVStore(node_number)
-    server.en = BinaryEncoderDecoder()
-    print("Starting server on node %s" % node_number)
-    if leader:
-        print("Starting as leader")
-    else:
-        print("Starting as follower")
-        snapshot, socket = call_node_with_command(GetSnapshot(), 1)
+        print("Starting server on node %s" % node_number)
+        if self.is_leader:
+            print("Starting as leader")
+        else:
+            print("Starting as follower")
+            self.follower_startup()
+
+    def follower_startup(self):
+        snapshot, socket = call_node_with_command(RegisterFollower(self.node_number), LEADER)
         socket.close()
-        server.kvstore.start_from_snapshot(snapshot)
+        self.kvstore.start_from_snapshot(snapshot)
 
+    def handle(self, data):
+        try:
+            command = self.en.decode(data)
+        except InputValidationError as e:
+            return str(e)
 
-    return server
+        if command.enum == CommandEnum.GET:
+            result = StringResponse(self.kvstore.get(command.key))
+        elif command.enum == CommandEnum.SET:
+            result = StringResponse(self.kvstore.set(command.key, command.value))
+        elif command.enum == CommandEnum.REGISTER_FOLLOWER:
+            # store, logSequenceNumber = self.kvstore.get_snapshot()
+            print(f"received follow registration from node {command.node_number}")
+            # result = Snapshot(store, logSequenceNumber)
+            result = Snapshot({}, 1)
+
+        return result
+
+    def serve(self):
+        self.server.serve_forever()
+
+    def shutdown(self):
+        server.socket.close()
 
 
 def get_socket_fd(node_num):
