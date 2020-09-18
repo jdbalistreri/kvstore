@@ -2,7 +2,6 @@ import socketserver
 
 from kvstore.constants import ENTRYPOINT_SOCKET
 from kvstore.store import KVStore
-from kvstore.handlers import EntryPointHandler
 from kvstore.encoding import *
 import socket
 
@@ -15,6 +14,7 @@ class Server:
         self.kvstore = KVStore(node_number)
         self.en = BinaryEncoderDecoder()
         self.is_leader = node_number == LEADER
+        self.followers = set()
         sockFd = get_socket_fd(node_number)
         self.server = socketserver.UnixStreamServer(sockFd, EntryPointHandler)
         self.server.server = self
@@ -31,6 +31,26 @@ class Server:
         socket.close()
         self.kvstore.start_from_snapshot(snapshot)
 
+    def get(self, command):
+        return StringResponse(self.kvstore.get(command.key))
+
+    def set(self, command):
+        write_log = self.kvstore.set(command.key, command.value)
+        for f_id in self.followers:
+            print(f"shipping write log {write_log} to follower {f_id}")
+
+        return StringResponse(write_log.value)
+
+    def registerFollower(self, command):
+        if not self.is_leader:
+            raise Exception("Only the leader can register followers")
+
+        self.followers.add(command.node_number)
+        print(f"added follower node {command.node_number}")
+
+        store, logSequenceNumber = self.kvstore.get_snapshot()
+        return Snapshot(store, logSequenceNumber)
+
     def handle(self, data):
         try:
             command = self.en.decode(data)
@@ -38,14 +58,11 @@ class Server:
             return str(e)
 
         if command.enum == CommandEnum.GET:
-            result = StringResponse(self.kvstore.get(command.key))
+            result = self.get(command)
         elif command.enum == CommandEnum.SET:
-            result = StringResponse(self.kvstore.set(command.key, command.value))
+            result = self.set(command)
         elif command.enum == CommandEnum.REGISTER_FOLLOWER:
-            # store, logSequenceNumber = self.kvstore.get_snapshot()
-            print(f"received follow registration from node {command.node_number}")
-            # result = Snapshot(store, logSequenceNumber)
-            result = Snapshot({}, 1)
+            result = self.registerFollower(command)
 
         return result
 
@@ -53,7 +70,7 @@ class Server:
         self.server.serve_forever()
 
     def shutdown(self):
-        server.socket.close()
+        self.server.socket.close()
 
 
 def get_socket_fd(node_num):
@@ -78,3 +95,12 @@ def call_node_with_command(command, node_number):
         total += response
 
     return en.decode(total), s
+
+
+class EntryPointHandler(socketserver.BaseRequestHandler):
+    def handle(self):
+        data = self.request.recv(1024)
+        result = self.server.server.handle(data)
+        encoded = self.server.server.en.encode(result)
+        self.request.send(encoded)
+        return

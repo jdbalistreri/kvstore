@@ -4,7 +4,7 @@ import sys
 
 from kvstore.constants import INPUT_PROMPT
 from kvstore.input import configure_readline, input_to_command, InputValidationError
-from kvstore.handlers import call_node_with_command
+from kvstore.server import call_node_with_command
 
 
 def main():
