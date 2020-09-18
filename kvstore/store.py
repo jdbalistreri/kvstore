@@ -3,14 +3,15 @@ import pickle
 from kvstore.constants import NULL
 from kvstore.encoding import WriteLog, BinaryEncoderDecoder, Set
 
-DEFAULT_FILE_NAME = "data/store.p"
-WRITE_LOG = "data/writelog.p"
+STORE_FILE_TMPL = "data/store%s.p"
+WRITE_LOG_TMPL = "data/writelog%ss.p"
 
 class KVStore:
-    def __init__(self, filename=DEFAULT_FILE_NAME):
+    def __init__(self, node_number, filename=STORE_FILE_TMPL):
         self.en = BinaryEncoderDecoder()
 
-        self.filename = filename
+        self.filename = filename % node_number
+        self.writelog = WRITE_LOG_TMPL % node_number
 
         read = self.read_from_disk()
         self.store = read["store"]
@@ -29,7 +30,7 @@ class KVStore:
 
         # write to write log
         encoded_wl = self.en.encode(WriteLog(command.key, command.value, self.logSequenceNumber))
-        with open(WRITE_LOG, 'ab') as f:
+        with open(self.writelog, 'ab') as f:
             f.write(encoded_wl)
 
     def read_from_disk(self):

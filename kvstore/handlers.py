@@ -1,24 +1,38 @@
 import socketserver
 
 from kvstore.input import InputValidationError
+from kvstore.constants import ENTRYPOINT_SOCKET
 from kvstore.store import KVStore
 from kvstore.encoding import *
 
-class EntryPointHandler(socketserver.BaseRequestHandler):
-    def setup(self):
-        self.kvstore = KVStore()
-        self.en = BinaryEncoderDecoder()
 
+def make_server(node_number, leader):
+    sockFd = ENTRYPOINT_SOCKET + str(node_number)
+
+    server = socketserver.UnixStreamServer(sockFd, EntryPointHandler)
+    server.kvstore = KVStore(node_number)
+    server.en = BinaryEncoderDecoder()
+    print("Starting server on node %s" % node_number)
+    if leader:
+        print("Starting as leader")
+    else:
+        print("Starting as follower")
+
+
+    return server, sockFd
+
+
+class EntryPointHandler(socketserver.BaseRequestHandler):
     def getResult(self, data):
         try:
-            command = self.en.decode(data)
+            command = self.server.en.decode(data)
         except InputValidationError as e:
             return str(e)
 
         if command.enum == CommandEnum.GET:
-            result = self.kvstore.get(command.key)
+            result = self.server.kvstore.get(command.key)
         elif command.enum == CommandEnum.SET:
-            result = self.kvstore.set(command.key, command.value)
+            result = self.server.kvstore.set(command.key, command.value)
 
         return result
 
