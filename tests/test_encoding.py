@@ -10,6 +10,10 @@ def test_bijection():
         Set("asdkfasdfa", "1234"),
         Set("asdkfasdfa😋😋😋", "1234"),
         WriteLog("asdkfasdfa😋😋😋", "1234", 121),
+        GetSnapshot(),
+        Snapshot({}, 1),
+        Snapshot({'a': 'cats'}, 12),
+        StringResponse("catburgalur"),
     ]
     for command in test_cases:
         assert command == en.decode(en.encode(command))

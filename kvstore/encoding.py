@@ -5,6 +5,9 @@ class CommandEnum(Enum):
     GET = 1
     SET = 2
     WRITE_LOG = 3
+    GET_SNAPSHOT = 4
+    SNAPSHOT = 5
+    STRING_RESPONSE = 6
 
 class Command():
     def encode(self):
@@ -39,6 +42,25 @@ class BinaryEncoderDecoder:
             value = self.decode_string(buf)
             return WriteLog(key, value, logSequenceNumber)
 
+        elif command_no == CommandEnum.GET_SNAPSHOT.value:
+            return GetSnapshot()
+
+        elif command_no == CommandEnum.SNAPSHOT.value:
+            logSequenceNumber = self.decode_num(buf)
+            num_keys = self.decode_num(buf)
+
+            store = {}
+            for _ in range(num_keys):
+                k = self.decode_string(buf)
+                v = self.decode_string(buf)
+                store[k] = v
+
+            return Snapshot(store, logSequenceNumber)
+
+        elif command_no == CommandEnum.STRING_RESPONSE.value:
+            value = self.decode_string(buf)
+            return StringResponse(value)
+
         raise ValueError("Invalid command number")
 
     def encode(self, command):
@@ -59,6 +81,19 @@ class BinaryEncoderDecoder:
             total_len = self.size_bytes + len(partial_total)
 
             buf.write(self.encode_num(total_len) + partial_total)
+        elif command.enum == CommandEnum.GET_SNAPSHOT:
+            pass
+        elif command.enum == CommandEnum.SNAPSHOT:
+            buf.write(self.encode_num(command.logSequenceNumber))
+
+            num_keys = self.encode_num(len(command.store.keys()))
+            buf.write(num_keys)
+
+            for k, v in command.store.items():
+                buf.write(self.encode_string(k))
+                buf.write(self.encode_string(v))
+        elif command.enum == CommandEnum.STRING_RESPONSE:
+            buf.write(self.encode_string(command.value))
         else:
             raise ValueError("Invalid command")
 
@@ -134,3 +169,40 @@ class WriteLog(Command):
         if not isinstance(other, WriteLog):
             raise NotImplemented
         return self.key == other.key and self.value == other.value and self.logSequenceNumber == other.logSequenceNumber
+
+class GetSnapshot(Command):
+    def __init__(self):
+        self.enum = CommandEnum.GET_SNAPSHOT
+
+    def __repr__(self):
+        return f'GET_SNAPSHOT()'
+
+    def __eq__(self, other):
+        return True
+
+class Snapshot(Command):
+    def __init__(self, store, logSequenceNumber):
+        self.enum = CommandEnum.SNAPSHOT
+        self.store = store
+        self.logSequenceNumber = logSequenceNumber
+
+    def __repr__(self):
+        return f'SNAPSHOT({self.store} {self.logSequenceNumber})'
+
+    def __eq__(self, other):
+        if not isinstance(other, Snapshot):
+            raise NotImplemented
+        return self.store == other.store and self.logSequenceNumber == other.logSequenceNumber
+
+class StringResponse(Command):
+    def __init__(self, value):
+        self.enum = CommandEnum.STRING_RESPONSE
+        self.value = value
+
+    def __repr__(self):
+        return f'Str({self.value})'
+
+    def __eq__(self, other):
+        if not isinstance(other, StringResponse):
+            raise NotImplemented
+        return self.value == other.value

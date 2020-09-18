@@ -4,7 +4,7 @@ from kvstore.constants import NULL
 from kvstore.encoding import WriteLog, BinaryEncoderDecoder, Set
 
 STORE_FILE_TMPL = "data/store%s.p"
-WRITE_LOG_TMPL = "data/writelog%ss.p"
+WRITE_LOG_TMPL = "data/writelog%s.p"
 
 class KVStore:
     def __init__(self, node_number, filename=STORE_FILE_TMPL):
@@ -47,6 +47,13 @@ class KVStore:
 
     def get(self, key):
         return self.store.get(key, NULL)
+
+    def start_from_snapshot(self, store, logSequenceNumber):
+        self.logSequenceNumber = logSequenceNumber
+        self.store = snapshot
+
+    def get_snapshot(self):
+        return self.store, self.logSequenceNumber
 
     def set(self, key, value):
         self.store[key] = value

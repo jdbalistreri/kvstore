@@ -7,6 +7,7 @@ import readline
 from kvstore.constants import INPUT_PROMPT, ENTRYPOINT_SOCKET
 from kvstore.encoding import BinaryEncoderDecoder
 from kvstore.input import input_to_command, InputValidationError
+from kvstore.handlers import get_command_from_command
 
 def configure_readline():
     histfile = ".python_history"
@@ -23,11 +24,9 @@ def main():
     configure_readline()
     en = BinaryEncoderDecoder()
 
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
         while True:
-            s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            s.connect(ENTRYPOINT_SOCKET)
-
             i = input(INPUT_PROMPT)
 
             try:
@@ -36,18 +35,9 @@ def main():
                 print(str(e))
                 continue
 
-            encoded = en.encode(command)
-            print("sending %s" % encoded)
-            s.send(encoded)
+            response, s = get_command_from_command(command, 1)
 
-            total = b''
-            while True:
-                response = s.recv(1024)
-                if len(response) == 0:
-                    break
-                total += response
-
-            print(total.decode(encoding='UTF-8') + "\n")
+            print(response.value + "\n")
             s.close()
 
     except KeyboardInterrupt:
