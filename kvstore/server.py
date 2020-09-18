@@ -11,7 +11,7 @@ LEADER = 1
 class Server:
     def __init__(self, node_number):
         self.node_number = node_number
-        self.kvstore = KVStore(node_number)
+        self.store = KVStore(node_number)
         self.en = BinaryEncoderDecoder()
         self.is_leader = node_number == LEADER
         self.followers = set()
@@ -29,15 +29,22 @@ class Server:
     def follower_startup(self):
         snapshot, socket = call_node_with_command(RegisterFollower(self.node_number), LEADER)
         socket.close()
-        self.kvstore.start_from_snapshot(snapshot)
+        self.store.start_from_snapshot(snapshot)
 
     def get(self, command):
-        return StringResponse(self.kvstore.get(command.key))
+        return StringResponse(self.store.get(command.key))
 
     def set(self, command):
-        write_log = self.kvstore.set(command.key, command.value)
-        for f_id in self.followers:
-            print(f"shipping write log {write_log} to follower {f_id}")
+        write_log = self.store.set(command.key, command.value)
+        for f_id in list(self.followers):
+            try:
+                call_node_with_command(write_log, f_id)
+                print(f"shipping write log {write_log} to follower {f_id}")
+            except FileNotFoundError:
+                # TODO: currently assuming an unreachable node is dead. could add
+                # more sophisticated health-check handling here
+                print(f"unable to reach node {f_id}. marking as dead")
+                self.followers.remove(f_id)
 
         return StringResponse(write_log.value)
 
@@ -48,8 +55,14 @@ class Server:
         self.followers.add(command.node_number)
         print(f"added follower node {command.node_number}")
 
-        store, logSequenceNumber = self.kvstore.get_snapshot()
+        store, logSequenceNumber = self.store.get_snapshot()
         return Snapshot(store, logSequenceNumber)
+
+    def receiveWriteLog(self, command):
+        print(f"received write log {command}")
+        self.store.receive_write_log(command)
+
+        return StringResponse("ack")
 
     def handle(self, data):
         try:
@@ -63,6 +76,8 @@ class Server:
             result = self.set(command)
         elif command.enum == CommandEnum.REGISTER_FOLLOWER:
             result = self.registerFollower(command)
+        elif command.enum == CommandEnum.WRITE_LOG:
+            result = self.receiveWriteLog(command)
 
         return result
 
@@ -84,7 +99,6 @@ def call_node_with_command(command, node_number):
     s.connect(sockFd)
 
     encoded = en.encode(command)
-    print("sending %s" % encoded)
     s.send(encoded)
 
     total = b''

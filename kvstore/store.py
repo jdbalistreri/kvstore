@@ -66,3 +66,12 @@ class KVStore:
         self.store[key] = value
         wl = self.write_to_disk(Set(key, value))
         return wl
+
+    def receive_write_log(self, command):
+        if command.logSequenceNumber < self.logSequenceNumber:
+            print("received old write. ignoring...")
+        elif command.logSequenceNumber > self.logSequenceNumber + 1:
+            # TODO: handle writes that have bene received out of order
+            raise NotImplementedError
+        else:
+            self.set(command.key, command.value)
