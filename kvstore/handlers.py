@@ -20,9 +20,9 @@ def make_server(node_number, leader):
         print("Starting as leader")
     else:
         print("Starting as follower")
-        # TODO: next!
-        # resp, socket = get_command_from_command(GetSnapshot(), 1)
-        # socket.close()
+        snapshot, socket = get_command_from_command(GetSnapshot(), 1)
+        socket.close()
+        server.kvstore.start_from_snapshot(snapshot)
 
 
     return server, sockFd
@@ -59,20 +59,19 @@ class EntryPointHandler(socketserver.BaseRequestHandler):
             return str(e)
 
         if command.enum == CommandEnum.GET:
-            result = self.server.kvstore.get(command.key)
+            result = StringResponse(self.server.kvstore.get(command.key))
         elif command.enum == CommandEnum.SET:
-            result = self.server.kvstore.set(command.key, command.value)
+            result = StringResponse(self.server.kvstore.set(command.key, command.value))
         elif command.enum == CommandEnum.GET_SNAPSHOT:
             store, logSequenceNumber = self.server.kvstore.get_snapshot()
             print("got snapshot!")
-            print(store, logSequenceNumber)
-            result = "snapshot!!"
+            result = Snapshot(store, logSequenceNumber)
 
         return result
 
     def handle(self):
         data = self.request.recv(1024)
         result = self.getResult(data)
-        encoded = self.server.en.encode(StringResponse(result))
+        encoded = self.server.en.encode(result)
         self.request.send(encoded)
         return
