@@ -13,7 +13,7 @@ def test_bijection():
         GetSnapshot(),
         Snapshot({}, 1),
         Snapshot({'a': 'cats'}, 12),
-        StringResponse("catburgalur"),
+        StringResponse("catburglar"),
     ]
     for command in test_cases:
         assert command == en.decode(en.encode(command))
