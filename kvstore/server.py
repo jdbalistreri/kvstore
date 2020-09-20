@@ -27,19 +27,23 @@ class Server:
             self.follower_startup()
 
     def follower_startup(self):
-        snapshot, socket = call_node_with_command(RegisterFollower(self.node_number), LEADER)
+        command, socket = call_node_with_command(RegisterFollower(self.node_number, self.store.log_sequence_number), LEADER)
         socket.close()
-        self.store.start_from_snapshot(snapshot)
+        if command.enum == CommandEnum.SNAPSHOT:
+            self.store.start_from_snapshot(command)
+        else:
+            self.store.start_from_write_logs(command)
 
     def get(self, command):
         return StringResponse(self.store.get(command.key))
 
     def set(self, command):
         write_log = self.store.set(command.key, command.value)
+        # TODO: make these calls asynchronous
         for f_id in list(self.followers):
             try:
                 call_node_with_command(write_log, f_id)
-                print(f"shipping write log {write_log} to follower {f_id}")
+                print(f"shipping write log to follower {f_id}")
             except FileNotFoundError:
                 # TODO: currently assuming an unreachable node is dead. could add
                 # more sophisticated health-check handling here
@@ -55,8 +59,17 @@ class Server:
         self.followers.add(command.node_number)
         print(f"added follower node {command.node_number}")
 
-        store, logSequenceNumber = self.store.get_snapshot()
-        return Snapshot(store, logSequenceNumber)
+        if command.log_sequence_number == self.store.log_sequence_number:
+            print("follower already caught up")
+            return WriteLogs([])
+        elif command.log_sequence_number + 5 >= self.store.log_sequence_number:
+            print("follower slightly behind: shipping write logs")
+            write_logs = self.store.get_write_logs_since(command.log_sequence_number)
+            return WriteLogs(write_logs)
+        else:
+            print("follower far behind: sending snapshot")
+            store, log_sequence_number = self.store.get_snapshot()
+            return Snapshot(store, log_sequence_number)
 
     def receiveWriteLog(self, command):
         print(f"received write log {command}")
