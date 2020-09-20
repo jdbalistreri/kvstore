@@ -34,7 +34,6 @@ class KVStore:
                 result.append(wl)
                 read += bytes_read
 
-            print(f"loaded: {result}")
             return result
         except FileNotFoundError:
             return []
