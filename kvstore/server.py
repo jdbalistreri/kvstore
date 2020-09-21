@@ -19,8 +19,12 @@ class Server:
 
         print("starting server on node %s" % node_number)
         print("registering with load balancer")
-        command, s = call_node_with_command(self._register_command(), LB_NODE)
-        s.close()
+        try:
+            command, s = call_node_with_command(self._register_command(), LB_NODE)
+            s.close()
+        except FileNotFoundError:
+            print("could not reach the load balancer")
+            self.shutdown()
 
         self.receive_registration_info(command)
 
@@ -41,7 +45,6 @@ class Server:
     def receive_shutdown_instruction(self, command):
         print("received instruction to shut down. Initiating shut down...")
         self.shutdown()
-        sys.exit(0)
 
     def receive_registration_info(self, command):
         self.leader_node = command.leader_id
@@ -106,3 +109,4 @@ class Server:
     def shutdown(self):
         print("shutting down server")
         self.server.socket.close()
+        sys.exit(0)
