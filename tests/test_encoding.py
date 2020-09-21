@@ -9,6 +9,17 @@ def test_bijection():
         Get("asdkfasdfa"),
         Set("asdkfasdfa", "1234"),
         Set("asdkfasdfa😋😋😋", "1234"),
+        WriteLog("asdkfasdfa😋😋😋", "1234", 121),
+        RegisterFollower(12121, 121),
+        Snapshot({}, 1),
+        Snapshot({'a': 'cats'}, 12),
+        StringResponse("catburglar"),
+        WriteLogs(
+            [
+                WriteLog("asdfasdf", "1231", 11),
+                WriteLog("adfd", "bsfsdf", 12),
+            ]
+        )
     ]
     for command in test_cases:
         assert command == en.decode(en.encode(command))

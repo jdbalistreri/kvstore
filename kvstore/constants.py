@@ -3,3 +3,5 @@ SET_OP = "set"
 NULL = "NULL"
 
 INPUT_PROMPT = "> "
+
+ENTRYPOINT_SOCKET = "entrypoint.socket"

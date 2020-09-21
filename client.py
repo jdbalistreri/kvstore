@@ -1,33 +1,23 @@
-import atexit
 import os
 import socket
 import sys
-import readline
 
 from kvstore.constants import INPUT_PROMPT
-from kvstore.encoding import BinaryEncoderDecoder
-from kvstore.input import input_to_command, InputValidationError
-
-def configure_readline():
-    histfile = ".python_history"
-    try:
-        readline.read_history_file(histfile)
-        readline.set_history_length(1000)
-    except FileNotFoundError:
-        pass
-
-    atexit.register(readline.write_history_file, histfile)
+from kvstore.input import configure_readline, input_to_command, InputValidationError
+from kvstore.server import call_node_with_command
 
 
 def main():
     configure_readline()
-    en = BinaryEncoderDecoder()
 
     try:
-        while True:
-            s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            s.connect('test_file.sock')
+        connect_to_node = sys.argv[1]
+    except IndexError:
+        connect_to_node = 1
 
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    try:
+        while True:
             i = input(INPUT_PROMPT)
 
             try:
@@ -36,20 +26,11 @@ def main():
                 print(str(e))
                 continue
 
-            encoded = en.encode(command)
-            print("sending %s" % encoded)
-            s.send(encoded)
+            response, s = call_node_with_command(command, connect_to_node)
 
-            total = b''
-            while True:
-                response = s.recv(1024)
-                if len(response) == 0:
-                    break
-                total += response
-
-            print(total.decode(encoding='UTF-8') + "\n")
+            print(response.value + "\n")
             s.close()
-            
+
     except KeyboardInterrupt:
         pass
     finally:
