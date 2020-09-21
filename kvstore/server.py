@@ -1,19 +1,18 @@
 import socketserver
 
 from kvstore.store import KVStore
+from kvstore.constants import LEADER_NODE
 from kvstore.encoding import *
 from kvstore.transport import get_socket_fd, EntryPointHandler, call_node_with_command
 import socket
 
-
-LEADER = 1
 
 class Server:
     def __init__(self, node_number):
         self.node_number = node_number
         self.store = KVStore(node_number)
         self.en = BinaryEncoderDecoder()
-        self.is_leader = node_number == LEADER
+        self.is_leader = node_number == LEADER_NODE
         self.followers = set()
         sockFd = get_socket_fd(node_number)
         self.server = socketserver.UnixStreamServer(sockFd, EntryPointHandler)
@@ -27,7 +26,7 @@ class Server:
             self.follower_startup()
 
     def follower_startup(self):
-        command, socket = call_node_with_command(RegisterFollower(self.node_number, self.store.log_sequence_number), LEADER)
+        command, socket = call_node_with_command(RegisterFollower(self.node_number, self.store.log_sequence_number), LEADER_NODE)
         socket.close()
         if command.enum == CommandEnum.SNAPSHOT:
             self.store.start_from_snapshot(command)
@@ -76,23 +75,6 @@ class Server:
         self.store.receive_write_log(command)
 
         return StringResponse("ack")
-
-    def handle(self, data):
-        try:
-            command = self.en.decode(data)
-        except InputValidationError as e:
-            return str(e)
-
-        if command.enum == CommandEnum.GET:
-            result = self.get(command)
-        elif command.enum == CommandEnum.SET:
-            result = self.set(command)
-        elif command.enum == CommandEnum.REGISTER_FOLLOWER:
-            result = self.registerFollower(command)
-        elif command.enum == CommandEnum.WRITE_LOG:
-            result = self.receiveWriteLog(command)
-
-        return result
 
     def serve(self):
         self.server.serve_forever()

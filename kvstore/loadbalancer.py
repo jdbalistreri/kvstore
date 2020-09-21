@@ -1,8 +1,9 @@
+import random
 import socketserver
 
-from kvstore.constants import ENTRYPOINT_SOCKET
+from kvstore.constants import ENTRYPOINT_SOCKET, LEADER_NODE
 from kvstore.encoding import *
-from kvstore.sockets import EntryPointHandler
+from kvstore.transport import EntryPointHandler, call_node_with_command, get_socket_fd
 import socket
 
 
@@ -14,24 +15,25 @@ class LoadBalancer:
         self.server = socketserver.UnixStreamServer(sockFd, EntryPointHandler)
         self.server.server = self
 
+        self.leader = None
+        self.followers = set()
+
         print("Starting loadbalancer")
 
-    def handle(self, data):
-        try:
-            command = self.en.decode(data)
-        except InputValidationError as e:
-            return str(e)
+    def registerFollower(self, command):
+        if command.node_number == LEADER_NODE:
+            print(f"Registered node {command.node_number} as the leader")
+            self.leader = command.node_number
+            self.followers.add(command.node_number)
+        else:
+            print(f"Registered node {command.node_number} as a follower")
+            self.followers.add(command.node_number)
 
-        if command.enum == CommandEnum.GET:
-            result = self.get(command)
-        elif command.enum == CommandEnum.SET:
-            result = self.set(command)
-        elif command.enum == CommandEnum.REGISTER_FOLLOWER:
-            result = self.registerFollower(command)
-        elif command.enum == CommandEnum.WRITE_LOG:
-            result = self.receiveWriteLog(command)
-
-        return result
+    def get(self, command):
+        if len(self.followers) == 0:
+            return StringResponse("No nodes available")
+        get_node = random.sample(self.followers, 1)[0]
+        return call_node_with_command(command, get_node)
 
     def serve(self):
         self.server.serve_forever()

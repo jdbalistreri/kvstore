@@ -6,9 +6,29 @@ from kvstore.constants import ENTRYPOINT_SOCKET
 from kvstore.encoding import *
 
 class EntryPointHandler(socketserver.BaseRequestHandler):
+    def _handle(self, data):
+        try:
+            try:
+                command = self.server.server.en.decode(data)
+            except InputValidationError as e:
+                return str(e)
+
+            if command.enum == CommandEnum.GET:
+                result = self.server.server.get(command)
+            elif command.enum == CommandEnum.SET:
+                result = self.server.server.set(command)
+            elif command.enum == CommandEnum.REGISTER_FOLLOWER:
+                result = self.server.server.registerFollower(command)
+            elif command.enum == CommandEnum.WRITE_LOG:
+                result = self.server.server.receiveWriteLog(command)
+
+            return result
+        except Exception as e:
+            return StringResponse(str(e))
+
     def handle(self):
         data = self.request.recv(1024)
-        result = self.server.server.handle(data)
+        result = self._handle(data)
         encoded = self.server.server.en.encode(result)
         self.request.send(encoded)
         return
