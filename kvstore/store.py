@@ -41,7 +41,7 @@ class KVStore:
     def write_to_disk(self, command):
         # update log sequence number
         self.log_sequence_number += 1
-        print(f"log_sequence_number: {self.log_sequence_number}")
+        print(f"writing log_sequence_number {self.log_sequence_number} to disk")
 
         self.dump_db()
 

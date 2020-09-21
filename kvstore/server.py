@@ -3,7 +3,7 @@ import socketserver
 import sys
 
 from kvstore.store import KVStore
-from kvstore.constants import LEADER_NODE, LB_NODE
+from kvstore.constants import LB_NODE
 from kvstore.encoding import *
 from kvstore.transport import get_socket_fd, EntryPointHandler, call_node_with_command
 
@@ -13,19 +13,23 @@ class Server:
         self.node_number = node_number
         self.store = KVStore(node_number)
         self.en = BinaryEncoderDecoder()
-        self.is_leader = node_number == LEADER_NODE
-        self.followers = set()
         sockFd = get_socket_fd(node_number)
         self.server = socketserver.UnixStreamServer(sockFd, EntryPointHandler)
         self.server.server = self
 
         print("Starting server on node %s" % node_number)
         print("Registering with load balancer")
-        _, s = call_node_with_command(self._register_command(), LB_NODE)
+        command, s = call_node_with_command(self._register_command(), LB_NODE)
         s.close()
+
+        self.leader_node = command.leader_id
+        self.is_leader = self.node_number == self.leader_node
+        self.followers = command.followers
 
         if self.is_leader:
             print("Starting as leader")
+            if len(self.followers) > 0:
+                print(f"Registered followers: {self.followers}")
         else:
             print("Starting as follower")
             self.follower_startup()
@@ -34,7 +38,7 @@ class Server:
         return RegisterFollower(self.node_number, self.store.log_sequence_number)
 
     def follower_startup(self):
-        command, socket = call_node_with_command(self._register_command(), LEADER_NODE)
+        command, socket = call_node_with_command(self._register_command(), self.leader_node)
         socket.close()
         if command.enum == CommandEnum.SNAPSHOT:
             self.store.start_from_snapshot(command)
@@ -57,7 +61,7 @@ class Server:
                 _, s = call_node_with_command(write_log, f_id)
                 s.close()
 
-                print(f"shipping write log to follower {f_id}")
+                print(f"shipping write log {self.store.log_sequence_number} to follower {f_id}")
             except FileNotFoundError:
                 # TODO: currently assuming an unreachable node is dead. could add
                 # more sophisticated health-check handling here
@@ -86,7 +90,7 @@ class Server:
             return Snapshot(store, log_sequence_number)
 
     def receiveWriteLog(self, command):
-        print(f"received write log")
+        print(f"received write log {command.log_sequence_number}")
         self.store.receive_write_log(command)
 
         return StringResponse("ack")

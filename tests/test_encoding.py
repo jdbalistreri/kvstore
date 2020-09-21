@@ -19,7 +19,10 @@ def test_bijection():
                 WriteLog("asdfasdf", "1231", 11),
                 WriteLog("adfd", "bsfsdf", 12),
             ]
-        )
+        ),
+        Shutdown(),
+        LBRegistrationInfo(1, set()),
+        LBRegistrationInfo(2, set([1,2,4,5]))
     ]
     for command in test_cases:
         assert command == en.decode(en.encode(command))

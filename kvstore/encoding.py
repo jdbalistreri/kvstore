@@ -11,6 +11,7 @@ class CommandEnum(Enum):
     WRITE_LOGS = 7
     SHUTDOWN = 8
     EMPTY_RESPONSE = 9
+    LB_REGISTRATION_INFO = 10
 
 class Command():
     def encode(self):
@@ -28,7 +29,7 @@ class BinaryEncoderDecoder:
     def decode(self, binary_input):
         if len(binary_input) == 0:
             return EmptyResponse()
-            
+
         buf = io.BytesIO(binary_input)
         command_no, _ = self.decode_num(buf)
 
@@ -75,6 +76,14 @@ class BinaryEncoderDecoder:
             return WriteLogs(result)
         elif command_no == CommandEnum.SHUTDOWN.value:
             return Shutdown()
+        elif command_no == CommandEnum.LB_REGISTRATION_INFO.value:
+            leader_id, _ = self.decode_num(buf)
+            num_followers, _ = self.decode_num(buf)
+            followers = set()
+            for _ in range(num_followers):
+                follower, _ = self.decode_num(buf)
+                followers.add(follower)
+            return LBRegistrationInfo(leader_id, followers)
 
         raise ValueError("Invalid command number")
 
@@ -124,6 +133,11 @@ class BinaryEncoderDecoder:
                 buf.write(log_seq_no + key_encoded + val_encoded)
         elif command.enum == CommandEnum.SHUTDOWN:
             pass
+        elif command.enum == CommandEnum.LB_REGISTRATION_INFO:
+            buf.write(self.encode_num(command.leader_id))
+            buf.write(self.encode_num(len(command.followers)))
+            for f_id in command.followers:
+                buf.write(self.encode_num(f_id))
         else:
             raise ValueError("Invalid command")
 
@@ -135,6 +149,24 @@ class BinaryEncoderDecoder:
             byteorder=self.byte_order,
             signed=self.signed
         )
+
+    def encode_bool(self, bool):
+        # TODO: this is inefficient - we could encode the boolean as a single bit
+        # reusing the existing number encoding to save time to focus on other
+        # aspects of the project
+        if bool:
+            return self.encode_num(1)
+        else:
+            return self.encode_num(0)
+
+    def decode_bool(self, buf):
+        num, read = self.decode_num(buf)
+        if num == 1:
+            return True, read
+        elif num == 0:
+            return False, read
+        else:
+            raise ValueError(f"Could not decode {num} to bool")
 
     def decode_string(self, buf):
         size, read = self.decode_num(buf)
@@ -275,3 +307,17 @@ class EmptyResponse(Command):
         if not isinstance(other, EmptyResponse):
             raise NotImplemented
         return True
+
+class LBRegistrationInfo(Command):
+    def __init__(self, leader_id, followers):
+        self.enum = CommandEnum.LB_REGISTRATION_INFO
+        self.leader_id = leader_id
+        self.followers = followers
+
+    def __repr__(self):
+        return f'EmptyResponse'
+
+    def __eq__(self, other):
+        if not isinstance(other, LBRegistrationInfo):
+            raise NotImplemented
+        return self.leader_id == other.leader_id and self.followers == other.followers

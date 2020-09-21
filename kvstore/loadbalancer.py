@@ -25,11 +25,13 @@ class LoadBalancer:
             print(f"Registered node {command.node_number} as the leader")
             self.leader = command.node_number
             self.followers.add(command.node_number)
+            return LBRegistrationInfo(LEADER_NODE, self.followers - set([command.node_number]))
         else:
             print(f"Registered node {command.node_number} as a follower")
             self.followers.add(command.node_number)
+            return LBRegistrationInfo(LEADER_NODE, set())
 
-        return StringResponse("ack")
+
 
     def get(self, command):
         if len(self.followers) == 0:
