@@ -86,7 +86,7 @@ class Server:
             return Snapshot(store, log_sequence_number)
 
     def receiveWriteLog(self, command):
-        print(f"received write log {command}")
+        print(f"received write log")
         self.store.receive_write_log(command)
 
         return StringResponse("ack")

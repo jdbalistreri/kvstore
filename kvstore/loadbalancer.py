@@ -33,14 +33,31 @@ class LoadBalancer:
 
     def get(self, command):
         if len(self.followers) == 0:
-            return StringResponse("No nodes available")
+            return StringResponse("No read nodes available")
 
-        # TODO: handle dead nodes
         get_node = random.sample(self.followers, 1)[0]
         print(f"Reading from node {get_node}")
-        resp, socket = call_node_with_command(command, get_node)
-        socket.close()
-        return resp
+        try:
+            resp, socket = call_node_with_command(command, get_node)
+            socket.close()
+            return resp
+        except FileNotFoundError:
+            print(f"unable to reach node {get_node}. marking as dead")
+            self.followers.remove(get_node)
+            return self.get(command)
+
+    def set(self, command):
+        if self.leader == None:
+            return StringResponse("No write nodes available")
+
+        try:
+            resp, socket = call_node_with_command(command, self.leader)
+            socket.close()
+            return resp
+        except FileNotFoundError:
+            print(f"unable to reach node {self.leader}. marking as dead")
+            self.leader = None
+            return StringResponse("No write nodes available")
 
     def serve(self):
         self.server.serve_forever()
@@ -52,5 +69,5 @@ class LoadBalancer:
             _, s = call_node_with_command(Shutdown(), f_id)
             s.close()
         self.server.socket.close()
-        
+
         print("Completed load balancer shutdown")
