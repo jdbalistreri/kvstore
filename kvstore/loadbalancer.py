@@ -1,23 +1,23 @@
 import random
+import socket
 import socketserver
 
 from kvstore.constants import ENTRYPOINT_SOCKET
 from kvstore.encoding import *
 from kvstore.transport import EntryPointHandler, call_node_with_command, get_socket_fd
-import socket
 
 
 class LoadBalancer:
     def __init__(self, node_number, automatic_failover):
         self.node_number = node_number
+        self.automatic_failover = automatic_failover
+        self.leader = None
+        self.followers = set()
+
         self.en = BinaryEncoderDecoder()
         sockFd = get_socket_fd(node_number)
         self.server = socketserver.UnixStreamServer(sockFd, EntryPointHandler)
         self.server.server = self
-        self.automatic_failover = automatic_failover
-
-        self.leader = None
-        self.followers = set()
 
         print("starting loadbalancer")
 

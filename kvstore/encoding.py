@@ -153,24 +153,6 @@ class BinaryEncoderDecoder:
             signed=self.signed
         )
 
-    def encode_bool(self, bool):
-        # TODO: this is inefficient - we could encode the boolean as a single bit
-        # reusing the existing number encoding to save time to focus on other
-        # aspects of the project
-        if bool:
-            return self.encode_num(1)
-        else:
-            return self.encode_num(0)
-
-    def decode_bool(self, buf):
-        num, read = self.decode_num(buf)
-        if num == 1:
-            return True, read
-        elif num == 0:
-            return False, read
-        else:
-            raise ValueError(f"Could not decode {num} to bool")
-
     def decode_string(self, buf):
         size, read = self.decode_num(buf)
         return buf.read(size).decode(self.string_encoding), read + size
