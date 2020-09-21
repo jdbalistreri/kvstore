@@ -1,7 +1,7 @@
 import socketserver
 
 from kvstore.store import KVStore
-from kvstore.constants import LEADER_NODE
+from kvstore.constants import LEADER_NODE, LB_NODE
 from kvstore.encoding import *
 from kvstore.transport import get_socket_fd, EntryPointHandler, call_node_with_command
 import socket
@@ -19,14 +19,21 @@ class Server:
         self.server.server = self
 
         print("Starting server on node %s" % node_number)
+        print("Registering with load balancer")
+        _, s = call_node_with_command(self._register_command(), LB_NODE)
+        s.close()
+
         if self.is_leader:
             print("Starting as leader")
         else:
             print("Starting as follower")
             self.follower_startup()
 
+    def _register_command(self):
+        return RegisterFollower(self.node_number, self.store.log_sequence_number)
+
     def follower_startup(self):
-        command, socket = call_node_with_command(RegisterFollower(self.node_number, self.store.log_sequence_number), LEADER_NODE)
+        command, socket = call_node_with_command(self._register_command(), LEADER_NODE)
         socket.close()
         if command.enum == CommandEnum.SNAPSHOT:
             self.store.start_from_snapshot(command)
@@ -41,7 +48,9 @@ class Server:
         # TODO: make these calls asynchronous
         for f_id in list(self.followers):
             try:
-                call_node_with_command(write_log, f_id)
+                _, s = call_node_with_command(write_log, f_id)
+                s.close()
+                
                 print(f"shipping write log to follower {f_id}")
             except FileNotFoundError:
                 # TODO: currently assuming an unreachable node is dead. could add

@@ -29,11 +29,18 @@ class LoadBalancer:
             print(f"Registered node {command.node_number} as a follower")
             self.followers.add(command.node_number)
 
+        return StringResponse("ack")
+
     def get(self, command):
         if len(self.followers) == 0:
             return StringResponse("No nodes available")
+
+        # TODO: handle dead nodes
         get_node = random.sample(self.followers, 1)[0]
-        return call_node_with_command(command, get_node)
+        print(f"Reading from node {get_node}")
+        resp, socket = call_node_with_command(command, get_node)
+        socket.close()
+        return resp
 
     def serve(self):
         self.server.serve_forever()
