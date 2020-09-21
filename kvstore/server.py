@@ -17,22 +17,12 @@ class Server:
         self.server = socketserver.UnixStreamServer(sockFd, EntryPointHandler)
         self.server.server = self
 
-        print("Starting server on node %s" % node_number)
-        print("Registering with load balancer")
+        print("starting server on node %s" % node_number)
+        print("registering with load balancer")
         command, s = call_node_with_command(self._register_command(), LB_NODE)
         s.close()
 
-        self.leader_node = command.leader_id
-        self.is_leader = self.node_number == self.leader_node
-        self.followers = command.followers
-
-        if self.is_leader:
-            print("Starting as leader")
-            if len(self.followers) > 0:
-                print(f"Registered followers: {self.followers}")
-        else:
-            print("Starting as follower")
-            self.follower_startup()
+        self.receive_registration_info(command)
 
     def _register_command(self):
         return RegisterFollower(self.node_number, self.store.log_sequence_number)
@@ -49,14 +39,29 @@ class Server:
         return StringResponse(self.store.get(command.key))
 
     def receive_shutdown_instruction(self, command):
-        print("Received instruction to shut down. Initiating shut down...")
+        print("received instruction to shut down. Initiating shut down...")
         self.shutdown()
         sys.exit(0)
+
+    def receive_registration_info(self, command):
+        self.leader_node = command.leader_id
+        self.is_leader = self.node_number == self.leader_node
+        self.followers = command.followers
+
+        if self.is_leader:
+            print("starting as leader")
+            if len(self.followers) > 1:
+                print(f"registered followers: {self.followers - set([self.node_number])}")
+        else:
+            print("starting as follower")
+            self.follower_startup()
+
+        return EmptyResponse()
 
     def set(self, command):
         write_log = self.store.set(command.key, command.value)
         # TODO: make these calls asynchronous
-        for f_id in list(self.followers):
+        for f_id in [x for x in self.followers if x != self.node_number]:
             try:
                 _, s = call_node_with_command(write_log, f_id)
                 s.close()
@@ -93,11 +98,11 @@ class Server:
         print(f"received write log {command.log_sequence_number}")
         self.store.receive_write_log(command)
 
-        return StringResponse("ack")
+        return EmptyResponse()
 
     def serve(self):
         self.server.serve_forever()
 
     def shutdown(self):
-        print("Shutting down server")
+        print("shutting down server")
         self.server.socket.close()

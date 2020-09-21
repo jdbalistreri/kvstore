@@ -100,6 +100,9 @@ class BinaryEncoderDecoder:
         return log_seq_no + key_encoded + val_encoded
 
     def encode(self, command):
+        if command.enum == CommandEnum.EMPTY_RESPONSE:
+            return b''
+
         buf = io.BytesIO()
         buf.write(self.encode_num(command.enum.value))
 

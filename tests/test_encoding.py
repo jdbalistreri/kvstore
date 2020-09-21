@@ -21,6 +21,7 @@ def test_bijection():
             ]
         ),
         Shutdown(),
+        EmptyResponse(),
         LBRegistrationInfo(1, set()),
         LBRegistrationInfo(2, set([1,2,4,5]))
     ]

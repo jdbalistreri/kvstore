@@ -7,4 +7,3 @@ INPUT_PROMPT = "> "
 ENTRYPOINT_SOCKET = "entrypoint.socket"
 
 LB_NODE = 0
-LEADER_NODE = 1

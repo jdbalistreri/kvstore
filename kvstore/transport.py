@@ -23,6 +23,8 @@ class EntryPointHandler(socketserver.BaseRequestHandler):
                 result = self.server.server.receiveWriteLog(command)
             elif command.enum == CommandEnum.SHUTDOWN:
                 result = self.server.server.receive_shutdown_instruction(command)
+            elif command.enum == CommandEnum.LB_REGISTRATION_INFO:
+                result = self.server.server.receive_registration_info(command)
 
             return result
         except Exception as e:

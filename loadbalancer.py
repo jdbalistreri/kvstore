@@ -9,7 +9,7 @@ if __name__ == '__main__':
     sockfd = get_socket_fd(node_number)
     atexit.register(unlink, sockfd)
 
-    lb = LoadBalancer(node_number)
+    lb = LoadBalancer(node_number, automatic_failover=True)
 
     try:
         lb.serve()
