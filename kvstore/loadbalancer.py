@@ -46,4 +46,11 @@ class LoadBalancer:
         self.server.serve_forever()
 
     def shutdown(self):
+        print("Beginning load balancer shutdown")
+        for f_id in self.followers:
+            print(f"Shutting down node {f_id}")
+            _, s = call_node_with_command(Shutdown(), f_id)
+            s.close()
         self.server.socket.close()
+        
+        print("Completed load balancer shutdown")

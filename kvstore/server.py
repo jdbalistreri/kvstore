@@ -1,10 +1,11 @@
+import socket
 import socketserver
+import sys
 
 from kvstore.store import KVStore
 from kvstore.constants import LEADER_NODE, LB_NODE
 from kvstore.encoding import *
 from kvstore.transport import get_socket_fd, EntryPointHandler, call_node_with_command
-import socket
 
 
 class Server:
@@ -43,6 +44,11 @@ class Server:
     def get(self, command):
         return StringResponse(self.store.get(command.key))
 
+    def receive_shutdown_instruction(self, command):
+        print("Received instruction to shut down. Initiating shut down...")
+        self.shutdown()
+        sys.exit(0)
+
     def set(self, command):
         write_log = self.store.set(command.key, command.value)
         # TODO: make these calls asynchronous
@@ -50,7 +56,7 @@ class Server:
             try:
                 _, s = call_node_with_command(write_log, f_id)
                 s.close()
-                
+
                 print(f"shipping write log to follower {f_id}")
             except FileNotFoundError:
                 # TODO: currently assuming an unreachable node is dead. could add
@@ -89,4 +95,5 @@ class Server:
         self.server.serve_forever()
 
     def shutdown(self):
+        print("Shutting down server")
         self.server.socket.close()

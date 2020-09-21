@@ -21,6 +21,8 @@ class EntryPointHandler(socketserver.BaseRequestHandler):
                 result = self.server.server.registerFollower(command)
             elif command.enum == CommandEnum.WRITE_LOG:
                 result = self.server.server.receiveWriteLog(command)
+            elif command.enum == CommandEnum.SHUTDOWN:
+                result = self.server.server.receive_shutdown_instruction(command)
 
             return result
         except Exception as e:

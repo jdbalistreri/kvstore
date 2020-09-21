@@ -9,6 +9,8 @@ class CommandEnum(Enum):
     SNAPSHOT = 5
     STRING_RESPONSE = 6
     WRITE_LOGS = 7
+    SHUTDOWN = 8
+    EMPTY_RESPONSE = 9
 
 class Command():
     def encode(self):
@@ -24,6 +26,9 @@ class BinaryEncoderDecoder:
         self.signed = False
 
     def decode(self, binary_input):
+        if len(binary_input) == 0:
+            return EmptyResponse()
+            
         buf = io.BytesIO(binary_input)
         command_no, _ = self.decode_num(buf)
 
@@ -68,6 +73,8 @@ class BinaryEncoderDecoder:
                 wl, _ = self.decode_wl(buf)
                 result.append(wl)
             return WriteLogs(result)
+        elif command_no == CommandEnum.SHUTDOWN.value:
+            return Shutdown()
 
         raise ValueError("Invalid command number")
 
@@ -115,6 +122,8 @@ class BinaryEncoderDecoder:
                 key_encoded = self.encode_string(wl.key)
                 val_encoded = self.encode_string(wl.value)
                 buf.write(log_seq_no + key_encoded + val_encoded)
+        elif command.enum == CommandEnum.SHUTDOWN:
+            pass
         else:
             raise ValueError("Invalid command")
 
@@ -242,3 +251,27 @@ class StringResponse(Command):
         if not isinstance(other, StringResponse):
             raise NotImplemented
         return self.value == other.value
+
+class Shutdown(Command):
+    def __init__(self):
+        self.enum = CommandEnum.SHUTDOWN
+
+    def __repr__(self):
+        return f'Shutdown'
+
+    def __eq__(self, other):
+        if not isinstance(other, Shutdown):
+            raise NotImplemented
+        return True
+
+class EmptyResponse(Command):
+    def __init__(self):
+        self.enum = CommandEnum.EMPTY_RESPONSE
+
+    def __repr__(self):
+        return f'EmptyResponse'
+
+    def __eq__(self, other):
+        if not isinstance(other, EmptyResponse):
+            raise NotImplemented
+        return True
