@@ -8,11 +8,12 @@ from kvstore.transport import EntryPointHandler, call_node_with_command, get_soc
 
 
 class LoadBalancer:
-    def __init__(self, node_number, automatic_failover):
+    def __init__(self, node_number, automatic_failover, replica_count=3):
         self.node_number = node_number
         self.automatic_failover = automatic_failover
         self.leader = None
         self.followers = set()
+        self.replica_count = replica_count
 
         self.en = BinaryEncoderDecoder()
         sockFd = get_socket_fd(node_number)
