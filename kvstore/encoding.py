@@ -9,6 +9,9 @@ class CommandEnum(Enum):
     SNAPSHOT = 5
     STRING_RESPONSE = 6
     WRITE_LOGS = 7
+    SHUTDOWN = 8
+    EMPTY_RESPONSE = 9
+    LB_REGISTRATION_INFO = 10
 
 class Command():
     def encode(self):
@@ -24,6 +27,9 @@ class BinaryEncoderDecoder:
         self.signed = False
 
     def decode(self, binary_input):
+        if len(binary_input) == 0:
+            return EmptyResponse()
+
         buf = io.BytesIO(binary_input)
         command_no, _ = self.decode_num(buf)
 
@@ -68,6 +74,16 @@ class BinaryEncoderDecoder:
                 wl, _ = self.decode_wl(buf)
                 result.append(wl)
             return WriteLogs(result)
+        elif command_no == CommandEnum.SHUTDOWN.value:
+            return Shutdown()
+        elif command_no == CommandEnum.LB_REGISTRATION_INFO.value:
+            leader_id, _ = self.decode_num(buf)
+            num_followers, _ = self.decode_num(buf)
+            followers = set()
+            for _ in range(num_followers):
+                follower, _ = self.decode_num(buf)
+                followers.add(follower)
+            return LBRegistrationInfo(leader_id, followers)
 
         raise ValueError("Invalid command number")
 
@@ -84,6 +100,9 @@ class BinaryEncoderDecoder:
         return log_seq_no + key_encoded + val_encoded
 
     def encode(self, command):
+        if command.enum == CommandEnum.EMPTY_RESPONSE:
+            return b''
+
         buf = io.BytesIO()
         buf.write(self.encode_num(command.enum.value))
 
@@ -115,6 +134,13 @@ class BinaryEncoderDecoder:
                 key_encoded = self.encode_string(wl.key)
                 val_encoded = self.encode_string(wl.value)
                 buf.write(log_seq_no + key_encoded + val_encoded)
+        elif command.enum == CommandEnum.SHUTDOWN:
+            pass
+        elif command.enum == CommandEnum.LB_REGISTRATION_INFO:
+            buf.write(self.encode_num(command.leader_id))
+            buf.write(self.encode_num(len(command.followers)))
+            for f_id in command.followers:
+                buf.write(self.encode_num(f_id))
         else:
             raise ValueError("Invalid command")
 
@@ -242,3 +268,41 @@ class StringResponse(Command):
         if not isinstance(other, StringResponse):
             raise NotImplemented
         return self.value == other.value
+
+class Shutdown(Command):
+    def __init__(self):
+        self.enum = CommandEnum.SHUTDOWN
+
+    def __repr__(self):
+        return f'Shutdown'
+
+    def __eq__(self, other):
+        if not isinstance(other, Shutdown):
+            raise NotImplemented
+        return True
+
+class EmptyResponse(Command):
+    def __init__(self):
+        self.enum = CommandEnum.EMPTY_RESPONSE
+
+    def __repr__(self):
+        return f'EmptyResponse'
+
+    def __eq__(self, other):
+        if not isinstance(other, EmptyResponse):
+            raise NotImplemented
+        return True
+
+class LBRegistrationInfo(Command):
+    def __init__(self, leader_id, followers):
+        self.enum = CommandEnum.LB_REGISTRATION_INFO
+        self.leader_id = leader_id
+        self.followers = followers
+
+    def __repr__(self):
+        return f'EmptyResponse'
+
+    def __eq__(self, other):
+        if not isinstance(other, LBRegistrationInfo):
+            raise NotImplemented
+        return self.leader_id == other.leader_id and self.followers == other.followers

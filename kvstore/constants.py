@@ -5,3 +5,5 @@ NULL = "NULL"
 INPUT_PROMPT = "> "
 
 ENTRYPOINT_SOCKET = "entrypoint.socket"
+
+LB_NODE = 0

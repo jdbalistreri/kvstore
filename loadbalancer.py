@@ -1,21 +1,18 @@
 import atexit
-import sys
 
-from kvstore.server import Server
+from kvstore.loadbalancer import LoadBalancer
+from kvstore.server import get_socket_fd
 from kvstore.transport import get_socket_fd, unlink
 
 if __name__ == '__main__':
-    try:
-        node_number = int(sys.argv[1])
-    except IndexError:
-        node_number = 1
-
+    node_number = 0
     sockfd = get_socket_fd(node_number)
     atexit.register(unlink, sockfd)
-    server = Server(node_number)
+
+    lb = LoadBalancer(node_number, automatic_failover=True)
 
     try:
-        server.serve()
+        lb.serve()
     except KeyboardInterrupt:
-        server.shutdown()
+        lb.shutdown()
         unlink(sockfd)
