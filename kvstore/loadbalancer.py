@@ -32,7 +32,7 @@ class LoadBalancer:
             print(f"registered node {command.node_number} as a follower")
 
         self.followers.add(command.node_number)
-        return LBRegistrationInfo(self.leader, self.followers)
+        return LBRegistrationInfo(command.node_number, set([command.node_number]))
 
     def add_node(self, command):
         print(f"adding node {command.node_num}")
@@ -48,22 +48,27 @@ class LoadBalancer:
     def get_routing_info(self, key):
         nodes = self.pm.lookup(key)
         print(f"would route to {nodes}")
+        return nodes
 
     def get(self, command):
-        self.get_routing_info(command.key)
+        routing_info = self.get_routing_info(command.key)
+        if len(routing_info) == 0:
+            return StringResponse("no nodes in the ring")
 
-        if len(self.followers) == 0:
-            return StringResponse("no read nodes available")
+        primary = routing_info[0]
 
-        get_node = self._choose_read_node()
-        print(f"reading from node {get_node}")
+        if primary not in self.followers:
+            return StringResponse("primary node is not available")
+
+        # get_node = self._choose_read_node()
+        print(f"reading from node {primary}")
         try:
-            resp, socket = call_node_with_command(command, get_node)
+            resp, socket = call_node_with_command(command, primary)
             socket.close()
             return resp
         except FileNotFoundError:
-            print(f"unable to reach node {get_node}. marking as dead")
-            self.followers.remove(get_node)
+            print(f"unable to reach node {primary}. marking as dead")
+            self.followers.remove(primary)
             return self.get(command)
 
     def _choose_read_node(self):
@@ -72,21 +77,34 @@ class LoadBalancer:
         return random.sample(self.followers, 1)[0]
 
     def set(self, command):
-        self.get_routing_info(command.key)
+        routing_info = self.get_routing_info(command.key)
+        if len(routing_info) == 0:
+            return StringResponse("no nodes in the ring")
 
-        if self.leader == None:
-            return StringResponse("no write nodes available")
+        primary = routing_info[0]
+
+        if primary not in self.followers:
+            return StringResponse("primary node is not available")
 
         try:
-            resp, socket = call_node_with_command(command, self.leader)
+            resp, socket = call_node_with_command(command, primary)
             socket.close()
         except FileNotFoundError:
-            return self._handle_dead_leader(command)
+            return self._handle_dead_leader(primary)
 
-        print(f"writing to node {self.leader}")
+        print(f"writing to node {primary}")
         return resp
 
-    def _handle_dead_leader(self, command):
+
+    def _handle_dead_leader(self, primary):
+        print(f"unable to reach node {primary}. marking as dead")
+        self.followers.remove(primary)
+        return StringResponse("No write nodes available")
+
+    # this code was used in a previous iteration of the project when
+    # we did not support partitions, just a single partition with single-leader
+    # replication
+    def _handle_dead_leader_with_automatic_failover(self, command):
         print(f"unable to reach node {self.leader}. marking as dead")
         self.followers.remove(self.leader)
         self.leader = None

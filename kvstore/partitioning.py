@@ -16,7 +16,7 @@ class PartitionManager:
         self.nodes = vals.get('nodes', set([1,2,3]))
         self.ring_keys = vals.get('ring_keys', [])
         self.ring = vals.get('ring', [])
-        self.tokens_per_node = vals.get('tokens_per_node', 10)
+        self.tokens_per_node = vals.get('tokens_per_node', 100)
 
         self.construct_ring()
 
@@ -25,7 +25,7 @@ class PartitionManager:
         max_replicas = min(len(self.nodes), replicas)
 
         dest_nodes = []
-        i = bisect.bisect(self.ring_keys, key_hash)
+        i = bisect.bisect(self.ring_keys, key_hash) % len(self.ring)
         while len(dest_nodes) < max_replicas:
             (_, node) = self.ring[i]
             if node not in dest_nodes:

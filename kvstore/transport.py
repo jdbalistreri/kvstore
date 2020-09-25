@@ -34,6 +34,7 @@ class EntryPointHandler(socketserver.BaseRequestHandler):
 
             return result
         except Exception as e:
+            raise e
             return StringResponse(str(e))
 
     def handle(self):
