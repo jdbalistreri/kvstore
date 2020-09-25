@@ -25,6 +25,12 @@ class EntryPointHandler(socketserver.BaseRequestHandler):
                 result = self.server.server.receive_shutdown_instruction(command)
             elif command.enum == CommandEnum.LB_REGISTRATION_INFO:
                 result = self.server.server.receive_registration_info(command)
+            elif command.enum == CommandEnum.ADD_NODE:
+                result = self.server.server.add_node(command)
+            elif command.enum == CommandEnum.REMOVE_NODE:
+                result = self.server.server.remove_node(command)
+            elif command.enum == CommandEnum.LIST_NODES:
+                result = self.server.server.list_nodes(command)
 
             return result
         except Exception as e:

@@ -12,6 +12,9 @@ class CommandEnum(Enum):
     SHUTDOWN = 8
     EMPTY_RESPONSE = 9
     LB_REGISTRATION_INFO = 10
+    ADD_NODE = 11
+    REMOVE_NODE = 12
+    LIST_NODES = 13
 
 class Command():
     def encode(self):
@@ -76,6 +79,8 @@ class BinaryEncoderDecoder:
             return WriteLogs(result)
         elif command_no == CommandEnum.SHUTDOWN.value:
             return Shutdown()
+        elif command_no == CommandEnum.LIST_NODES.value:
+            return ListNodes()
         elif command_no == CommandEnum.LB_REGISTRATION_INFO.value:
             leader_id, _ = self.decode_num(buf)
             num_followers, _ = self.decode_num(buf)
@@ -84,6 +89,12 @@ class BinaryEncoderDecoder:
                 follower, _ = self.decode_num(buf)
                 followers.add(follower)
             return LBRegistrationInfo(leader_id, followers)
+        elif command_no == CommandEnum.ADD_NODE.value:
+            node_num, _ = self.decode_num(buf)
+            return AddNode(node_num)
+        elif command_no == CommandEnum.REMOVE_NODE.value:
+            node_num, _ = self.decode_num(buf)
+            return RemoveNode(node_num)
 
         raise ValueError("Invalid command number")
 
@@ -136,11 +147,15 @@ class BinaryEncoderDecoder:
                 buf.write(log_seq_no + key_encoded + val_encoded)
         elif command.enum == CommandEnum.SHUTDOWN:
             pass
+        elif command.enum == CommandEnum.LIST_NODES:
+            pass
         elif command.enum == CommandEnum.LB_REGISTRATION_INFO:
             buf.write(self.encode_num(command.leader_id))
             buf.write(self.encode_num(len(command.followers)))
             for f_id in command.followers:
                 buf.write(self.encode_num(f_id))
+        elif command.enum == CommandEnum.ADD_NODE or command.enum ==CommandEnum.REMOVE_NODE:
+            buf.write(self.encode_num(command.node_num))
         else:
             raise ValueError("Invalid command")
 
@@ -306,3 +321,41 @@ class LBRegistrationInfo(Command):
         if not isinstance(other, LBRegistrationInfo):
             raise NotImplemented
         return self.leader_id == other.leader_id and self.followers == other.followers
+
+class AddNode(Command):
+    def __init__(self, node_num):
+        self.enum = CommandEnum.ADD_NODE
+        self.node_num = node_num
+
+    def __repr__(self):
+        return f'AddNode({self.node_num})'
+
+    def __eq__(self, other):
+        if not isinstance(other, AddNode):
+            raise NotImplemented
+        return self.node_num == other.node_num
+
+class RemoveNode(Command):
+    def __init__(self, node_num):
+        self.enum = CommandEnum.REMOVE_NODE
+        self.node_num = node_num
+
+    def __repr__(self):
+        return f'RemoveNode({self.node_num})'
+
+    def __eq__(self, other):
+        if not isinstance(other, RemoveNode):
+            raise NotImplemented
+        return self.node_num == other.node_num
+
+class ListNodes(Command):
+    def __init__(self):
+        self.enum = CommandEnum.LIST_NODES
+
+    def __repr__(self):
+        return f'ListNodes'
+
+    def __eq__(self, other):
+        if not isinstance(other, ListNodes):
+            raise NotImplemented
+        return True

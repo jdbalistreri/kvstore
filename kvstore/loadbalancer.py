@@ -4,6 +4,7 @@ import socketserver
 
 from kvstore.constants import ENTRYPOINT_SOCKET
 from kvstore.encoding import *
+from kvstore.partitioning import PartitionManager
 from kvstore.transport import EntryPointHandler, call_node_with_command, get_socket_fd
 
 
@@ -12,6 +13,7 @@ class LoadBalancer:
         self.node_number = node_number
         self.automatic_failover = automatic_failover
         self.leader = None
+        self.pm = PartitionManager()
         self.followers = set()
         self.replica_count = replica_count
 
@@ -32,7 +34,24 @@ class LoadBalancer:
         self.followers.add(command.node_number)
         return LBRegistrationInfo(self.leader, self.followers)
 
+    def add_node(self, command):
+        print(f"adding node {command.node_num}")
+        return StringResponse(self.pm.add_node(command.node_num))
+
+    def list_nodes(self, command):
+        return StringResponse(f"{self.pm.nodes}")
+
+    def remove_node(self, command):
+        print(f"removing node {command.node_num}")
+        return StringResponse(self.pm.remove_node(command.node_num))
+
+    def get_routing_info(self, key):
+        nodes = self.pm.lookup(key)
+        print(f"would route to {nodes}")
+
     def get(self, command):
+        self.get_routing_info(command.key)
+
         if len(self.followers) == 0:
             return StringResponse("no read nodes available")
 
@@ -53,6 +72,8 @@ class LoadBalancer:
         return random.sample(self.followers, 1)[0]
 
     def set(self, command):
+        self.get_routing_info(command.key)
+
         if self.leader == None:
             return StringResponse("no write nodes available")
 
