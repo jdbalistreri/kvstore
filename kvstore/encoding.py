@@ -15,6 +15,7 @@ class CommandEnum(Enum):
     ADD_NODE = 11
     REMOVE_NODE = 12
     LIST_NODES = 13
+    PING = 14
 
 class Command():
     def encode(self):
@@ -81,6 +82,8 @@ class BinaryEncoderDecoder:
             return Shutdown()
         elif command_no == CommandEnum.LIST_NODES.value:
             return ListNodes()
+        elif command_no == CommandEnum.PING.value:
+            return Ping()
         elif command_no == CommandEnum.LB_REGISTRATION_INFO.value:
             leader_id, _ = self.decode_num(buf)
             num_followers, _ = self.decode_num(buf)
@@ -148,6 +151,8 @@ class BinaryEncoderDecoder:
         elif command.enum == CommandEnum.SHUTDOWN:
             pass
         elif command.enum == CommandEnum.LIST_NODES:
+            pass
+        elif command.enum == CommandEnum.PING:
             pass
         elif command.enum == CommandEnum.LB_REGISTRATION_INFO:
             buf.write(self.encode_num(command.leader_id))
@@ -357,5 +362,17 @@ class ListNodes(Command):
 
     def __eq__(self, other):
         if not isinstance(other, ListNodes):
+            raise NotImplemented
+        return True
+
+class Ping(Command):
+    def __init__(self):
+        self.enum = CommandEnum.PING
+
+    def __repr__(self):
+        return f'Ping'
+
+    def __eq__(self, other):
+        if not isinstance(other, Ping):
             raise NotImplemented
         return True

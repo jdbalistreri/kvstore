@@ -15,6 +15,8 @@ class EntryPointHandler(socketserver.BaseRequestHandler):
 
             if command.enum == CommandEnum.GET:
                 result = self.server.server.get(command)
+            if command.enum == CommandEnum.PING:
+                result = EmptyResponse()
             elif command.enum == CommandEnum.SET:
                 result = self.server.server.set(command)
             elif command.enum == CommandEnum.REGISTER_FOLLOWER:
