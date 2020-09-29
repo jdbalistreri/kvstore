@@ -12,7 +12,7 @@ class LoadBalancer:
     def __init__(self, node_number, automatic_failover, replica_count=3):
         self.node_number = node_number
         self.automatic_failover = automatic_failover
-        self.pm = PartitionManager()
+        self.pm = PartitionManager(is_lb=True)
         self.replica_count = replica_count
 
         self.en = BinaryEncoderDecoder()
@@ -24,22 +24,49 @@ class LoadBalancer:
 
     def registerFollower(self, command):
         print(f"node {command.node_number} is online")
-        return LBRegistrationInfo(command.node_number, set([command.node_number]))
+        return LBRegistrationInfo(self.pm.ring)
 
     def add_node(self, command):
         print(f"adding node {command.node_num}")
         try:
-            resp = call_node_with_command(Ping(), command.node_num)
+            resp, socket = call_node_with_command(Ping(), command.node_num)
+            socket.close()
         except FileNotFoundError:
             return StringResponse(f"Node {command.node_num} must be available before it can be added")
-        return StringResponse(self.pm.add_node(command.node_num))
+
+        try:
+            resp = self.pm.add_node(command.node_num)
+        except ValueError as e:
+            return StringResponse(str(e))
+
+        self.distribute_routing_info()
+
+        return StringResponse(resp)
+
+    def distribute_routing_info(self):
+        print("distributing routing info")
+        routing_command = LBRegistrationInfo(self.pm.ring)
+        for node in self.pm.nodes:
+            try:
+                print(f"updating node {node}")
+                _, socket = call_node_with_command(routing_command, node)
+                socket.close()
+            except (FileNotFoundError):
+                print(f"couldn't reach node {node}")
 
     def list_nodes(self, command):
         return StringResponse(f"{self.pm.nodes}")
 
     def remove_node(self, command):
         print(f"removing node {command.node_num}")
-        return StringResponse(self.pm.remove_node(command.node_num))
+        try:
+            resp = self.pm.remove_node(command.node_num)
+        except ValueError as e:
+            return StringResponse(str(e))
+
+        self.distribute_routing_info()
+
+        return StringResponse(resp)
 
     def get_routing_info(self, key):
         nodes = self.pm.lookup(key)

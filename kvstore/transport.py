@@ -1,6 +1,7 @@
 import os
 import socket
 import socketserver
+import sys
 
 from kvstore.constants import ENTRYPOINT_SOCKET
 from kvstore.encoding import *
@@ -40,28 +41,45 @@ class EntryPointHandler(socketserver.BaseRequestHandler):
             return StringResponse(str(e))
 
     def handle(self):
-        data = self.request.recv(1024)
-        result = self._handle(data)
+        print("handling incoming connection")
+        # TODO: this is a hack, but i was having trouble recv-ing multiple times
+        # on the request
+        import pdb; pdb.set_trace()
+        t = self.request.recv(999999999)
+        print("decoded incoming binary")
+        result = self._handle(t)
+        print("handled incoming binary")
         encoded = self.server.server.en.encode(result)
-        self.request.send(encoded)
+        print("sending response")
+        self.request.sendall(encoded)
+        print("done sending response")
         return
 
+def receive_data(sock):
+    total = b''
+    while True:
+        print("aaaa")
+        response = sock.recv(1024)
+        if len(response) == 0:
+            break
+        total += response
+    return total
+
 def call_node_with_command(command, node_number):
+    print("calling with command")
     en = BinaryEncoderDecoder()
     sockFd = get_socket_fd(node_number)
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     s.connect(sockFd)
 
     encoded = en.encode(command)
-    s.send(encoded)
+    print("sending all data")
+    s.sendall(encoded)
 
-    total = b''
-    while True:
-        response = s.recv(1024)
-        if len(response) == 0:
-            break
-        total += response
+    print("receiving response")
+    total = receive_data(s)
 
+    print("returning")
     return en.decode(total), s
 
 def get_socket_fd(node_num):

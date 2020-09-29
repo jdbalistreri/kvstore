@@ -27,6 +27,7 @@ class BinaryEncoderDecoder:
         self.byte_order = 'big'
         self.string_encoding = 'utf-8'
         self.size_bytes = 4
+        self.hash_size_bytes = 32
         self.signed = False
         self.signed = False
 
@@ -85,13 +86,13 @@ class BinaryEncoderDecoder:
         elif command_no == CommandEnum.PING.value:
             return Ping()
         elif command_no == CommandEnum.LB_REGISTRATION_INFO.value:
-            leader_id, _ = self.decode_num(buf)
-            num_followers, _ = self.decode_num(buf)
-            followers = set()
-            for _ in range(num_followers):
-                follower, _ = self.decode_num(buf)
-                followers.add(follower)
-            return LBRegistrationInfo(leader_id, followers)
+            ring_length, _ = self.decode_num(buf)
+            ring = []
+            for _ in range(ring_length):
+                hash, _ = self.decode_num(buf, self.hash_size_bytes)
+                node, _ = self.decode_num(buf)
+                ring.append((hash, node))
+            return LBRegistrationInfo(ring)
         elif command_no == CommandEnum.ADD_NODE.value:
             node_num, _ = self.decode_num(buf)
             return AddNode(node_num)
@@ -155,10 +156,10 @@ class BinaryEncoderDecoder:
         elif command.enum == CommandEnum.PING:
             pass
         elif command.enum == CommandEnum.LB_REGISTRATION_INFO:
-            buf.write(self.encode_num(command.leader_id))
-            buf.write(self.encode_num(len(command.followers)))
-            for f_id in command.followers:
-                buf.write(self.encode_num(f_id))
+            buf.write(self.encode_num(len(command.ring)))
+            for (hash, node) in command.ring:
+                buf.write(self.encode_num(hash, self.hash_size_bytes))
+                buf.write(self.encode_num(node))
         elif command.enum == CommandEnum.ADD_NODE or command.enum ==CommandEnum.REMOVE_NODE:
             buf.write(self.encode_num(command.node_num))
         else:
@@ -166,9 +167,9 @@ class BinaryEncoderDecoder:
 
         return buf.getvalue()
 
-    def encode_num(self, num):
+    def encode_num(self, num, size=None):
         return num.to_bytes(
-            self.size_bytes,
+            size if size else self.size_bytes,
             byteorder=self.byte_order,
             signed=self.signed
         )
@@ -177,9 +178,9 @@ class BinaryEncoderDecoder:
         size, read = self.decode_num(buf)
         return buf.read(size).decode(self.string_encoding), read + size
 
-    def decode_num(self, buf):
+    def decode_num(self, buf, size=None):
         return int.from_bytes(
-            buf.read(self.size_bytes),
+            buf.read(size if size else self.size_bytes),
             byteorder=self.byte_order,
             signed=self.signed
         ), self.size_bytes
@@ -314,10 +315,9 @@ class EmptyResponse(Command):
         return True
 
 class LBRegistrationInfo(Command):
-    def __init__(self, leader_id, followers):
+    def __init__(self, ring):
         self.enum = CommandEnum.LB_REGISTRATION_INFO
-        self.leader_id = leader_id
-        self.followers = followers
+        self.ring = ring
 
     def __repr__(self):
         return f'EmptyResponse'
@@ -325,7 +325,7 @@ class LBRegistrationInfo(Command):
     def __eq__(self, other):
         if not isinstance(other, LBRegistrationInfo):
             raise NotImplemented
-        return self.leader_id == other.leader_id and self.followers == other.followers
+        return self.ring == other.ring
 
 class AddNode(Command):
     def __init__(self, node_num):

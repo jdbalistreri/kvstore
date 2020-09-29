@@ -22,8 +22,8 @@ def test_bijection():
         ),
         Shutdown(),
         EmptyResponse(),
-        LBRegistrationInfo(1, set()),
-        LBRegistrationInfo(2, set([1,2,4,5])),
+        LBRegistrationInfo([(11123123123, 1), (12553242423, 2)]),
+        LBRegistrationInfo([]),
         AddNode(2),
         RemoveNode(1212),
     ]

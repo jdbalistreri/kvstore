@@ -5,6 +5,7 @@ import sys
 from kvstore.store import KVStore
 from kvstore.constants import LB_NODE
 from kvstore.encoding import *
+from kvstore.partitioning import PartitionManager
 from kvstore.transport import get_socket_fd, EntryPointHandler, call_node_with_command
 
 
@@ -47,42 +48,39 @@ class Server:
         self.shutdown()
 
     def receive_registration_info(self, command):
-        self.leader_node = command.leader_id
-        self.is_leader = self.node_number == self.leader_node
-        self.followers = command.followers
+        print("received routing info")
+        self.pm = PartitionManager(is_lb=False, ring=command.ring)
 
-        if self.is_leader:
-            print("starting as leader")
-            if len(self.followers) > 1:
-                print(f"registered followers: {self.followers - set([self.node_number])}")
-        else:
-            print("starting as follower")
-            self.follower_startup()
+        # TODO: handle catching up on any missed writes
+        # self.follower_startup()
 
-        return EmptyResponse()
+        return StringResponse("")
 
     def set(self, command):
         write_log = self.store.set(command.key, command.value)
         # TODO: make these calls asynchronous
-        for f_id in [x for x in self.followers if x != self.node_number]:
-            try:
-                _, s = call_node_with_command(write_log, f_id)
-                s.close()
 
-                print(f"shipping write log {self.store.log_sequence_number} to follower {f_id}")
-            except FileNotFoundError:
-                # TODO: currently assuming an unreachable node is dead. could add
-                # more sophisticated health-check handling here
-                print(f"unable to reach node {f_id}. marking as dead")
-                self.followers.remove(f_id)
+        # TODO: make this replicate based on the ring
+
+        # for f_id in [x for x in self.followers if x != self.node_number]:
+        #     try:
+        #         _, s = call_node_with_command(write_log, f_id)
+        #         s.close()
+        #
+        #         print(f"shipping write log {self.store.log_sequence_number} to follower {f_id}")
+        #     except FileNotFoundError:
+        #         # TODO: currently assuming an unreachable node is dead. could add
+        #         # more sophisticated health-check handling here
+        #         print(f"unable to reach node {f_id}. marking as dead")
+        #         self.followers.remove(f_id)
 
         return StringResponse(write_log.value)
 
     def registerFollower(self, command):
-        if not self.is_leader:
-            raise Exception("Only the leader can register followers")
+        # if not self.is_leader:
+        #     raise Exception("Only the leader can register followers")
 
-        self.followers.add(command.node_number)
+        # self.followers.add(command.node_number)
         print(f"added follower node {command.node_number}")
 
         if command.log_sequence_number == self.store.log_sequence_number:

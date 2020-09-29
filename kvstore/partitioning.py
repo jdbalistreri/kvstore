@@ -8,17 +8,25 @@ PARTITION_FILENAME = "data/partition_manager.p"
 
 class PartitionManager:
 
-    def __init__(self):
-        self.filename = PARTITION_FILENAME
+    def __init__(self, is_lb=False, ring=None):
+        self.is_lb = is_lb
 
-        vals = self.load()
+        if is_lb:
+            self.filename = PARTITION_FILENAME
 
-        self.nodes = vals.get('nodes', set([1,2,3]))
-        self.ring_keys = vals.get('ring_keys', [])
-        self.ring = vals.get('ring', [])
-        self.tokens_per_node = vals.get('tokens_per_node', 100)
+            vals = self.load()
 
-        self.construct_ring()
+            self.nodes = vals.get('nodes', set([1,2,3]))
+            self.ring_keys = vals.get('ring_keys', [])
+            self.ring = vals.get('ring', [])
+            self.tokens_per_node = vals.get('tokens_per_node', 100)
+
+            self.construct_ring()
+        else:
+            self.ring = ring
+            self.ring_keys = [r[0] for r in self.ring]
+            self.nodes = set([x for (_, x) in self.ring])
+            self.tokens_per_node = len(self.ring) / len(self.nodes)
 
     def lookup(self, key, replicas=3):
         key_hash = self._hash(key.encode('utf-8'))
@@ -36,6 +44,9 @@ class PartitionManager:
         return dest_nodes
 
     def save(self):
+        if not self.is_lb:
+            return
+
         vals = {
             'ring': self.ring,
             'ring_keys': self.ring_keys,
@@ -48,13 +59,16 @@ class PartitionManager:
         )
 
     def load(self):
+        if not self.is_lb:
+            return
+
         if os.path.exists(self.filename):
             return pickle.load( open( self.filename, "rb+" ) )
         return {}
 
     def add_node(self, node):
         if node in self.nodes:
-            return f"node {node} already in the ring"
+            raise ValueError(f"node {node} already in the ring")
 
         self.nodes.add(node)
         self._add_keys_for_node(node)
@@ -64,7 +78,7 @@ class PartitionManager:
 
     def remove_node(self, node):
         if node not in self.nodes:
-            return f"node {node} not in the ring"
+            raise ValueError(f"node {node} not in the ring")
 
         self.nodes.remove(node)
         self.ring = [x for x in self.ring if x[1] != node]
