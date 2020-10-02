@@ -1,3 +1,4 @@
+import io
 import os
 import socket
 import socketserver
@@ -41,45 +42,37 @@ class EntryPointHandler(socketserver.BaseRequestHandler):
             return StringResponse(str(e))
 
     def handle(self):
-        print("handling incoming connection")
-        # TODO: this is a hack, but i was having trouble recv-ing multiple times
-        # on the request
-        import pdb; pdb.set_trace()
-        t = self.request.recv(999999999)
-        print("decoded incoming binary")
+        t = receive_data(self.server.server.en, self.request)
         result = self._handle(t)
-        print("handled incoming binary")
         encoded = self.server.server.en.encode(result)
-        print("sending response")
-        self.request.sendall(encoded)
-        print("done sending response")
+        send_data(self.server.server.en, self.request, encoded)
         return
 
-def receive_data(sock):
+def receive_data(en, sock):
+    l_bytes = sock.recv(12)
+    total_bytes, _ = en.decode_num(io.BytesIO(l_bytes), 12)
+
     total = b''
-    while True:
-        print("aaaa")
+    while len(total) < total_bytes:
         response = sock.recv(1024)
-        if len(response) == 0:
-            break
         total += response
     return total
 
+def send_data(en, sock, data):
+    l = en.encode_num(len(data), 12)
+    sock.sendall(l + data)
+
 def call_node_with_command(command, node_number):
-    print("calling with command")
     en = BinaryEncoderDecoder()
     sockFd = get_socket_fd(node_number)
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     s.connect(sockFd)
 
     encoded = en.encode(command)
-    print("sending all data")
-    s.sendall(encoded)
+    send_data(en, s, encoded)
 
-    print("receiving response")
-    total = receive_data(s)
+    total = receive_data(en, s)
 
-    print("returning")
     return en.decode(total), s
 
 def get_socket_fd(node_num):
