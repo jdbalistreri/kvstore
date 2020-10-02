@@ -35,6 +35,8 @@ class EntryPointHandler(socketserver.BaseRequestHandler):
                 result = self.server.server.remove_node(command)
             elif command.enum == CommandEnum.LIST_NODES:
                 result = self.server.server.list_nodes(command)
+            elif command.enum == CommandEnum.SNAPSHOT:
+                result = self.server.server.receive_partial_update(command)
 
             return result
         except Exception as e:

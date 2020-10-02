@@ -11,8 +11,8 @@ def test_bijection():
         Set("asdkfasdfa😋😋😋", "1234"),
         WriteLog("asdkfasdfa😋😋😋", "1234", 121),
         RegisterFollower(12121, 121),
-        Snapshot({}, 1),
-        Snapshot({'a': 'cats'}, 12),
+        Snapshot({}),
+        Snapshot({'a': 'cats'}),
         StringResponse("catburglar"),
         WriteLogs(
             [

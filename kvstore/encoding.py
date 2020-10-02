@@ -57,7 +57,6 @@ class BinaryEncoderDecoder:
             return RegisterFollower(node_number, log_sequence_number)
 
         elif command_no == CommandEnum.SNAPSHOT.value:
-            log_sequence_number, _ = self.decode_num(buf)
             num_keys, _ = self.decode_num(buf)
 
             store = {}
@@ -66,7 +65,7 @@ class BinaryEncoderDecoder:
                 v, _ = self.decode_string(buf)
                 store[k] = v
 
-            return Snapshot(store, log_sequence_number)
+            return Snapshot(store)
 
         elif command_no == CommandEnum.STRING_RESPONSE.value:
             value, _ = self.decode_string(buf)
@@ -132,8 +131,6 @@ class BinaryEncoderDecoder:
             buf.write(self.encode_num(command.node_number))
             buf.write(self.encode_num(command.log_sequence_number))
         elif command.enum == CommandEnum.SNAPSHOT:
-            buf.write(self.encode_num(command.log_sequence_number))
-
             num_keys = self.encode_num(len(command.store.keys()))
             buf.write(num_keys)
 
@@ -264,10 +261,9 @@ class RegisterFollower(Command):
         return self.node_number == other.node_number
 
 class Snapshot(Command):
-    def __init__(self, store, log_sequence_number):
+    def __init__(self, store):
         self.enum = CommandEnum.SNAPSHOT
         self.store = store
-        self.log_sequence_number = log_sequence_number
 
     def __repr__(self):
         return f'SNAPSHOT({self.store} {self.log_sequence_number})'
@@ -275,7 +271,7 @@ class Snapshot(Command):
     def __eq__(self, other):
         if not isinstance(other, Snapshot):
             raise NotImplemented
-        return self.store == other.store and self.log_sequence_number == other.log_sequence_number
+        return self.store == other.store
 
 class StringResponse(Command):
     def __init__(self, value):

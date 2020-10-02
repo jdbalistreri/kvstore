@@ -68,7 +68,7 @@ class KVStore:
             fetched = pickle.load( open( self.filename, "rb+" ) )
             if fetched.get("log_sequence_number"):
                 return fetched
-            return { "store": fetched, "log_sequence_number": 0 }
+            return { "store": fetched.get('store', {}), "log_sequence_number": 0 }
         else:
             return {
                 "store": {},
@@ -86,6 +86,16 @@ class KVStore:
 
         for wl in write_logs:
             self.receive_write_log(wl)
+
+    def add_partial_update(self, store):
+        print(f"adding {store} as partial update")
+        self.store = {**self.store, **store}
+        print(f"store is now {self.store}")
+        self.dump_db()
+
+    def reset_store_to_subset(self, store):
+        self.store = store
+        self.dump_db()
 
     def start_from_snapshot(self, snapshot):
         print("loading from snapshot: ", snapshot)

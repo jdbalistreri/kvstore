@@ -27,7 +27,7 @@ class Server:
             print("could not reach the load balancer")
             self.shutdown()
 
-        self.receive_registration_info(command)
+        self.receive_registration_info(command, startup=True)
 
     def _register_command(self):
         return RegisterFollower(self.node_number, self.store.log_sequence_number)
@@ -47,9 +47,38 @@ class Server:
         print("received instruction to shut down. Initiating shut down...")
         self.shutdown()
 
-    def receive_registration_info(self, command):
+    def receive_partial_update(self, command):
+        print(f"receiving partial update of {command.store}")
+        self.store.add_partial_update(command.store)
+        return EmptyResponse()
+
+    def receive_registration_info(self, command, startup=False):
         print("received routing info")
         self.pm = PartitionManager(is_lb=False, ring=command.ring)
+        if startup:
+            return
+
+        to_send = {}
+        for key in self.store.store.keys():
+            destinations = self.pm.lookup(key)
+            primary = destinations[0]
+            send_to_node = to_send.get(primary, {})
+            send_to_node[key] = self.store.store[key]
+            to_send[primary] = send_to_node
+
+        to_keep = self.store.store # keeping the whole store as default
+
+        for k, v in to_send.items():
+            if k == self.node_number:
+                print(f"keeping {v}")
+                to_keep = v
+            else:
+                print(f"sending {v} to node {k}")
+                _, s = call_node_with_command(Snapshot(v), k)
+                s.close()
+
+        # remove values we've send to other nodes once those requests succeed
+        self.store.reset_store_to_subset(to_keep)
 
         # TODO: handle catching up on any missed writes
         # self.follower_startup()
@@ -93,7 +122,7 @@ class Server:
         else:
             print("follower far behind: sending snapshot")
             store, log_sequence_number = self.store.get_snapshot()
-            return Snapshot(store, log_sequence_number)
+            return Snapshot(store)
 
     def receiveWriteLog(self, command):
         print(f"received write log {command.log_sequence_number}")
