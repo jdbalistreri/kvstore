@@ -43,10 +43,11 @@ class LoadBalancer:
 
         return StringResponse(resp)
 
-    def distribute_routing_info(self):
+    def distribute_routing_info(self, removed_node=None):
         print("distributing routing info")
         routing_command = LBRegistrationInfo(self.pm.ring)
-        for node in self.pm.nodes:
+        removed_node_ls = [removed_node] if removed_node else []
+        for node in list(self.pm.nodes) + removed_node_ls:
             try:
                 print(f"updating node {node}")
                 _, socket = call_node_with_command(routing_command, node)
@@ -59,12 +60,18 @@ class LoadBalancer:
 
     def remove_node(self, command):
         print(f"removing node {command.node_num}")
+
+        # remove the node from the partition manager
         try:
             resp = self.pm.remove_node(command.node_num)
         except ValueError as e:
             return StringResponse(str(e))
 
-        self.distribute_routing_info()
+        # distribute the update to all nodes
+        self.distribute_routing_info(removed_node = command.node_num)
+
+        # shutdown the removed node
+        self.shutdown_node(command.node_num)
 
         return StringResponse(resp)
 
@@ -109,15 +116,18 @@ class LoadBalancer:
     def serve(self):
         self.server.serve_forever()
 
+    def shutdown_node(self, num):
+        print(f"shutting down node {num}")
+        try:
+            _, s = call_node_with_command(Shutdown(), num)
+            s.close()
+        except FileNotFoundError:
+            return
+
     def shutdown(self):
         print("beginning load balancer shutdown")
         for f_id in self.pm.nodes:
-            print(f"shutting down node {f_id}")
-            try:
-                _, s = call_node_with_command(Shutdown(), f_id)
-                s.close()
-            except FileNotFoundError:
-                continue
+            self.shutdown_node(f_id)
 
         self.server.socket.close()
 

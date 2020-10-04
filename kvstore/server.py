@@ -66,7 +66,7 @@ class Server:
             send_to_node[key] = self.store.store[key]
             to_send[primary] = send_to_node
 
-        to_keep = self.store.store # keeping the whole store as default
+        to_keep = {}
 
         for k, v in to_send.items():
             if k == self.node_number:
